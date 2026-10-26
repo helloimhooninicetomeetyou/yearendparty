@@ -13,7 +13,7 @@
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
 
-  <style>a
+  <style>
     * {
       box-sizing: border-box;
       user-select: none;
@@ -46,8 +46,8 @@
     /* 겹쳐 쌓인 내 카드 더미(시각적 스택) 레이어 */
     .visual-stack-container {
       position: relative;
-      width: 68px;
-      height: 112px;
+      width: 64px;
+      height: 100px;
       display: flex;
       align-items: flex-end;
       justify-content: center;
@@ -55,8 +55,8 @@
 
     .stacked-card-layer {
       position: absolute;
-      width: 54px;
-      height: 74px;
+      width: 50px;
+      height: 68px;
       border-radius: 7px;
       background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%);
       border: 1.5px solid #fef2f2;
@@ -64,30 +64,80 @@
       transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
+    /* 원탁(Round Table) 스타일 */
+    .round-table-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 680px;
+      height: 390px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    @media (min-width: 640px) {
+      .round-table-wrapper {
+        height: 450px;
+      }
+    }
+
+    .round-table-surface {
+      position: absolute;
+      width: 78%;
+      height: 76%;
+      border-radius: 9999px;
+      background: radial-gradient(circle at 50% 50%, #1f6f54 0%, #144936 70%, #0d3325 100%);
+      border: 10px solid #5c3a21;
+      box-shadow:
+        inset 0 0 35px rgba(0, 0, 0, 0.65),
+        0 12px 30px rgba(0, 0, 0, 0.6),
+        0 0 0 3px #fbbf24;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 원탁 좌석 노드 */
+    .table-seat {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      z-index: 15;
+      transition: all 0.25s ease;
+    }
+
     /* 중앙 할리갈리 종 스타일 */
     .halli-bell {
-      width: 112px;
-      height: 112px;
+      width: 92px;
+      height: 92px;
       border-radius: 9999px;
       background: radial-gradient(circle at 32% 28%, #fef08a 0%, #f59e0b 55%, #b45309 90%, #78350f 100%);
-      border: 5px solid #451a03;
+      border: 4px solid #451a03;
       box-shadow:
-        0 12px 28px rgba(0, 0, 0, 0.65),
-        0 0 0 6px rgba(245, 158, 11, 0.22),
-        inset 0 5px 12px rgba(255, 255, 255, 0.75);
+        0 10px 24px rgba(0, 0, 0, 0.65),
+        0 0 0 5px rgba(245, 158, 11, 0.25),
+        inset 0 4px 10px rgba(255, 255, 255, 0.75);
       position: relative;
       cursor: pointer;
       transition: transform 0.06s ease, box-shadow 0.06s ease;
     }
 
+    @media (min-width: 640px) {
+      .halli-bell {
+        width: 106px;
+        height: 106px;
+      }
+    }
+
     .halli-bell::before {
       content: "";
       position: absolute;
-      top: 10px;
+      top: 8px;
       left: 50%;
       transform: translateX(-50%);
-      width: 24px;
-      height: 24px;
+      width: 20px;
+      height: 20px;
       border-radius: 9999px;
       background: radial-gradient(circle at 30% 30%, #ffffff, #d1d5db 65%, #4b5563 100%);
       border: 2px solid #1f2937;
@@ -96,7 +146,7 @@
 
     .halli-bell:active,
     .halli-bell.ringing {
-      transform: scale(0.9) translateY(5px);
+      transform: scale(0.9) translateY(4px);
       box-shadow:
         0 4px 10px rgba(0, 0, 0, 0.7),
         0 0 25px rgba(250, 204, 21, 0.85),
@@ -106,26 +156,58 @@
     /* 턴 강조 테두리 애니메이션 */
     @keyframes pulseTurn {
       0%, 100% {
-        box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7), 0 0 18px rgba(250, 204, 21, 0.5);
+        box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7), 0 0 16px rgba(250, 204, 21, 0.55);
       }
       50% {
-        box-shadow: 0 0 0 6px rgba(250, 204, 21, 0), 0 0 26px rgba(250, 204, 21, 0.85);
+        box-shadow: 0 0 0 5px rgba(250, 204, 21, 0), 0 0 24px rgba(250, 204, 21, 0.9);
       }
     }
 
     .turn-highlight {
       border-color: #facc15 !important;
-      animation: pulseTurn 1.4s infinite;
+      animation: pulseTurn 1.3s infinite;
     }
 
-    /* 주사위 눈 배치용 3x3 과일 그리드 */
+    /* 주사위 눈 배치용 3x3 과일 그리드 (카드 밖 이탈 방지) */
     .fruit-pip-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-template-rows: repeat(3, 1fr);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: repeat(3, minmax(0, 1fr));
       width: 100%;
       height: 100%;
       place-items: center;
+      overflow: hidden;
+      padding: 2px;
+    }
+
+    .fruit-pip-item {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      line-height: 1;
+      user-select: none;
+    }
+
+    /* 원탁 좌석용 소형 과일 크기 */
+    .fruit-pip-seat {
+      font-size: 11px;
+    }
+    @media (min-width: 640px) {
+      .fruit-pip-seat {
+        font-size: 13px;
+      }
+    }
+
+    /* 내 하단 패널용 중형 과일 크기 */
+    .fruit-pip-my {
+      font-size: 16px;
+    }
+    @media (min-width: 640px) {
+      .fruit-pip-my {
+        font-size: 19px;
+      }
     }
 
     /* 스크롤바 커스텀 */
@@ -377,67 +459,84 @@
 
   <!-- ==================== 3. 본 게임 화면 (8인 테이블 + 중앙 종 + 내 겹친 카드 더미) ==================== -->
   <main id="screen-game" class="hidden w-full max-w-6xl mx-auto flex-1 flex-col justify-between gap-2 py-1 z-10">
-    <!-- 4분 타이머 게이지 바 & 실시간 판정 배너 -->
+    <!-- 4분 전체 타이머 & 10초 턴 타이머 & 실시간 판정 배너 -->
     <div class="w-full flex flex-col gap-1.5">
       <div class="w-full h-2 bg-black/50 rounded-full overflow-hidden border border-white/10">
         <div id="timer-progress-bar" class="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500 transition-all duration-500" style="width: 100%;"></div>
       </div>
-      <div id="game-status-banner" class="w-full py-2 px-4 rounded-xl bg-black/55 border border-white/15 text-center font-bold text-xs sm:text-sm text-amber-200 shadow-md truncate">
-        게임이 시작되었습니다! 차례대로 카드를 뒤집으세요!
+
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-1.5">
+        <div id="game-status-banner" class="w-full sm:flex-1 py-1.5 px-3 rounded-xl bg-black/55 border border-white/15 text-center font-bold text-xs sm:text-sm text-amber-200 shadow-md truncate">
+          게임이 시작되었습니다! 차례대로 카드를 뒤집으세요!
+        </div>
+
+        <!-- 10초 카드 뒤집기 제한시간 표시 바 -->
+        <div class="w-full sm:w-60 bg-black/60 border border-amber-400/40 rounded-xl px-3 py-1.5 flex items-center justify-between gap-2 shrink-0">
+          <span class="text-[11px] font-bold text-amber-300 flex items-center gap-1">
+            <i class="fa-solid fa-hourglass-half"></i> 턴 제한시간
+          </span>
+          <div class="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+            <div id="turn-timer-bar" class="h-full bg-amber-400 transition-all duration-300" style="width: 100%;"></div>
+          </div>
+          <span id="turn-timer-text" class="font-mono font-black text-xs sm:text-sm text-white min-w-[32px] text-right">10초</span>
+        </div>
       </div>
     </div>
 
-    <!-- 상대 플레이어들 영역 (최대 7명 반응형 그리드) -->
-    <section id="opponents-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 w-full">
-      <!-- JS로 다른 플레이어들 렌더링 -->
-    </section>
+    <!-- 원탁(Round Table) 영역: 플레이어들이 원탁 둘레에 앉고 정중앙에 벨 위치 -->
+    <section class="w-full flex items-center justify-center my-0.5">
+      <div id="round-table-arena" class="round-table-wrapper">
+        <!-- 원탁 테이블 표면 & 정중앙 종 -->
+        <div class="round-table-surface">
+          <!-- 상단 요약 배지 (바닥 카드 & 생존 인원) -->
+          <div class="flex items-center gap-3 mb-2 bg-black/45 px-3 py-1 rounded-full border border-white/15 text-[11px] font-bold">
+            <span class="text-emerald-200">바닥 카드 <b id="table-open-total" class="text-amber-300">0장</b></span>
+            <span class="text-white/30">|</span>
+            <span class="text-emerald-200">생존 <b id="table-survivors-count" class="text-white">0명</b></span>
+          </div>
 
-    <!-- 중앙 할리갈리 종 & 현재 바닥 오픈 카드 요약 영역 -->
-    <section class="my-1 flex flex-col items-center justify-center relative py-2">
-      <div class="flex items-center gap-4 sm:gap-8">
-        <!-- 현재 바닥 총 깔린 카드 장수 표시 -->
-        <div class="bg-black/45 border border-white/15 rounded-2xl px-3.5 py-2 text-center min-w-[92px]">
-          <span class="block text-[11px] text-emerald-200 font-semibold">바닥 오픈 카드</span>
-          <span id="table-open-total" class="font-black text-lg sm:text-xl text-amber-300">0장</span>
+          <!-- 원탁 한가운데 위치한 할리갈리 벨 -->
+          <button
+            id="center-bell-btn"
+            onclick="handleBellPress()"
+            class="halli-bell flex flex-col items-center justify-center select-none z-20"
+            aria-label="할리갈리 종 치기"
+          >
+            <span class="mt-4 font-black text-base sm:text-lg text-amber-950 tracking-tight drop-shadow">BELL</span>
+            <span class="text-[9px] sm:text-[10px] font-extrabold text-amber-900">터치 / SPACE</span>
+          </button>
+
+          <!-- 현재 턴 플레이어 및 10초 카운트 안내 -->
+          <div id="table-center-turn-info" class="mt-2 px-2.5 py-0.5 rounded-full bg-black/50 border border-amber-400/30 text-[10px] sm:text-xs font-extrabold text-amber-200">
+            차례 대기 중
+          </div>
         </div>
 
-        <!-- 중앙 종 버튼 -->
-        <button
-          id="center-bell-btn"
-          onclick="handleBellPress()"
-          class="halli-bell flex flex-col items-center justify-center select-none"
-          aria-label="할리갈리 종 치기"
-        >
-          <span class="mt-5 font-black text-lg text-amber-950 tracking-tight drop-shadow">BELL</span>
-          <span class="text-[10px] font-extrabold text-amber-900">터치 / SPACE</span>
-        </button>
-
-        <!-- 남은 생존 인원 표시 -->
-        <div class="bg-black/45 border border-white/15 rounded-2xl px-3.5 py-2 text-center min-w-[92px]">
-          <span class="block text-[11px] text-emerald-200 font-semibold">생존 플레이어</span>
-          <span id="table-survivors-count" class="font-black text-lg sm:text-xl text-white">0명</span>
+        <!-- 원탁 둘레 플레이어 좌석 컨테이너 (JS로 원형 배치 렌더링) -->
+        <div id="round-table-seats" class=" inset-0 absolute pointer-events-none">
+          <!-- JS로 각 플레이어가 원탁을 둘러싸도록 렌더링됨 -->
         </div>
       </div>
     </section>
 
     <!-- 하단: 내 플레이어 전용 조작 영역 (내 겹쳐 쌓인 카드 더미 시각화 포함) -->
-    <section id="my-player-panel" class="w-full max-w-2xl mx-auto bg-black/55 backdrop-blur-md border-2 border-white/20 rounded-2xl p-3 sm:p-4 shadow-2xl transition-all">
-      <div class="flex items-center justify-between mb-2.5">
+    <section id="my-player-panel" class="w-full max-w-2xl mx-auto bg-black/55 backdrop-blur-md border-2 border-white/20 rounded-2xl p-2.5 sm:p-3.5 shadow-2xl transition-all">
+      <div class="flex items-center justify-between mb-2">
         <div class="flex items-center gap-2">
-          <span class="px-2.5 py-0.5 rounded-md bg-emerald-500 text-emerald-950 font-black text-xs">ME</span>
-          <h3 id="my-panel-name" class="font-extrabold text-base sm:text-lg text-white">내 닉네임</h3>
+          <span class="px-2 py-0.5 rounded-md bg-emerald-500 text-emerald-950 font-black text-xs">ME (6시 좌석)</span>
+          <h3 id="my-panel-name" class="font-extrabold text-sm sm:text-base text-white">내 닉네임</h3>
           <span id="my-turn-badge" class="hidden px-2.5 py-0.5 rounded-full bg-amber-400 text-amber-950 font-black text-xs animate-bounce">
-            내 차례! 카드를 뒤집으세요
+            내 차례! (10초 안에 뒤집기)
           </span>
         </div>
         <div class="text-xs sm:text-sm font-bold text-amber-300">
-          총 보유: <span id="my-total-cards-text" class="text-base sm:text-lg font-black">0</span>장
+          총 보유: <span id="my-total-cards-text" class="text-sm sm:text-base font-black">0</span>장
           <span class="text-white/60 text-xs ml-1">(바닥 <span id="my-open-cards-text">0</span>장)</span>
         </div>
       </div>
 
       <!-- 핵심 3열 영역: [1. 겹쳐 쌓인 내 카드 두께 시각화] + [2. 내 카드 뒤집기 버튼] + [3. 내가 펼친 과일 카드] -->
-      <div class="grid grid-cols-3 gap-2 sm:gap-4 items-center bg-white/5 rounded-xl p-2.5 sm:p-3 border border-white/10">
+      <div class="grid grid-cols-3 gap-2 sm:gap-4 items-center bg-white/5 rounded-xl p-2 sm:p-2.5 border border-white/10">
         <!-- 1) 내 카드 더미 옆에 겹치게 쌓아둔 카드 시각화 -->
         <div class="flex flex-col items-center justify-center">
           <div class="flex items-center gap-2">
@@ -445,11 +544,11 @@
               <!-- 카드 수만큼 겹쳐진 레이어가 JS로 렌더링됨 -->
             </div>
             <!-- 직관적 카드 수 게이지 바 -->
-            <div class="h-24 w-3 bg-black/50 rounded-full overflow-hidden border border-white/20 flex flex-col justify-end p-0.5">
+            <div class="h-20 w-2.5 bg-black/50 rounded-full overflow-hidden border border-white/20 flex flex-col justify-end p-0.5">
               <div id="my-stack-gauge" class="w-full bg-gradient-to-t from-amber-500 to-yellow-300 rounded-full transition-all duration-300" style="height: 50%;"></div>
             </div>
           </div>
-          <span class="mt-1.5 text-[11px] sm:text-xs font-bold text-amber-200">
+          <span class="mt-1 text-[11px] font-bold text-amber-200">
             쌓인 내 카드 (<span id="my-stack-label-count">0</span>장)
           </span>
         </div>
@@ -459,27 +558,27 @@
           <button
             id="my-deck-flip-btn"
             onclick="handleFlipPress()"
-            class="w-24 h-32 sm:w-28 sm:h-36 rounded-xl card-back-pattern flex flex-col items-center justify-center relative active:scale-95 transition group"
+            class="w-20 h-28 sm:w-24 sm:h-32 rounded-xl card-back-pattern flex flex-col items-center justify-center relative active:scale-95 transition group overflow-hidden"
           >
-            <span id="my-deck-count-badge" class="px-3 py-1 rounded-full bg-black/80 text-white font-black text-sm sm:text-base shadow">
+            <span id="my-deck-count-badge" class="px-2.5 py-0.5 rounded-full bg-black/80 text-white font-black text-xs sm:text-sm shadow">
               0장
             </span>
-            <span class="mt-2 text-[11px] font-extrabold text-amber-200 bg-black/65 px-2 py-0.5 rounded">
+            <span class="mt-1.5 text-[10px] font-extrabold text-amber-200 bg-black/65 px-1.5 py-0.5 rounded">
               터치하여 뒤집기
             </span>
           </button>
-          <span class="mt-1.5 text-[11px] sm:text-xs font-bold text-emerald-200">내 카드 더미 (Q키)</span>
+          <span class="mt-1 text-[11px] font-bold text-emerald-200">내 카드 더미 (Q키)</span>
         </div>
 
-        <!-- 3) 내가 펼친 오픈 카드 -->
+        <!-- 3) 내가 펼친 오픈 카드 (과일이 카드 밖으로 나가지 않도록 고정 크기 및 overflow-hidden 적용) -->
         <div class="flex flex-col items-center justify-center">
           <div
             id="my-open-card-slot"
-            class="w-24 h-32 sm:w-28 sm:h-36 rounded-xl bg-amber-50 border-2 border-gray-200 shadow-lg flex items-center justify-center p-2 text-gray-900"
+            class="w-20 h-28 sm:w-24 sm:h-32 rounded-xl bg-amber-50 border-2 border-gray-200 shadow-lg flex items-center justify-center p-1.5 text-gray-900 overflow-hidden"
           >
             <span class="text-xs text-gray-400 font-bold">비어 있음</span>
           </div>
-          <span class="mt-1.5 text-[11px] sm:text-xs font-bold text-emerald-200">내가 펼친 카드</span>
+          <span class="mt-1 text-[11px] font-bold text-emerald-200">내가 펼친 카드</span>
         </div>
       </div>
     </section>
@@ -552,6 +651,7 @@
      * 1. 상수 및 게임 데이터 정의
      *************************************************************************/
     const GAME_DURATION_SECONDS = 240; // 4분 (240초) 제한 시간
+    const TURN_DURATION_SECONDS = 10;  // 각 플레이어 카드 뒤집기 제한 시간 10초
     const PEER_PREFIX = 'hg8-kr-room-';
 
     const FRUITS = [
@@ -612,6 +712,7 @@
       maxPlayers: 8,
       status: 'waiting', // 'waiting' | 'playing' | 'ended'
       timeRemaining: GAME_DURATION_SECONDS,
+      turnTimeRemaining: TURN_DURATION_SECONDS,
       currentTurnIndex: 0,
       bannerMessage: '게임을 시작할 준비가 되었습니다!',
       lastSound: null,
@@ -780,6 +881,7 @@
         maxPlayers: maxPlayers,
         status: 'waiting',
         timeRemaining: GAME_DURATION_SECONDS,
+        turnTimeRemaining: TURN_DURATION_SECONDS,
         currentTurnIndex: 0,
         bannerMessage: '대기실에서 참가자를 기다리는 중입니다.',
         lastSound: null,
@@ -1158,22 +1260,34 @@
 
       roomState.status = 'playing';
       roomState.timeRemaining = GAME_DURATION_SECONDS; // 4분 (240초)
+      roomState.turnTimeRemaining = TURN_DURATION_SECONDS; // 10초 턴 제한시간
       roomState.currentTurnIndex = 0;
-      roomState.bannerMessage = `🔔 게임 시작! 제한 시간 4분 동안 같은 과일 합이 정확히 5개가 되면 종을 치세요!`;
+      roomState.bannerMessage = `🔔 게임 시작! 각 차례마다 10초 내에 카드를 뒤집고, 같은 과일 합이 5개가 되면 중앙의 종을 치세요!`;
 
       switchScreen('game');
       broadcastState('flip');
 
-      // 4분 카운트다운 타이머 시작
+      // 4분 전체 타이머 및 10초 턴 제한시간 카운트다운 시작
       countdownInterval = setInterval(() => {
         if (roomState.status !== 'playing') return;
         roomState.timeRemaining = Math.max(0, roomState.timeRemaining - 1);
 
         if (roomState.timeRemaining <= 0) {
           hostEndGame('⏱️ 4분 제한 시간이 종료되었습니다!');
-        } else {
-          broadcastState();
+          return;
         }
+
+        // 현재 턴 플레이어의 10초 뒤집기 제한시간 차감
+        roomState.turnTimeRemaining = Math.max(0, (roomState.turnTimeRemaining ?? TURN_DURATION_SECONDS) - 1);
+        if (roomState.turnTimeRemaining <= 0) {
+          const activePlayer = roomState.players[roomState.currentTurnIndex];
+          if (activePlayer) {
+            hostProcessFlip(activePlayer.id, true);
+            return;
+          }
+        }
+
+        broadcastState();
       }, 1000);
 
       scheduleHostAITurn();
@@ -1205,12 +1319,7 @@
 
       // 즉각적인 종 버튼 시각 반응
       const bellBtn = document.getElementById('center-bell-btn');
-      if (bellBtn) {
-        bellBtn.classList.add('ringing');
-        setTimeout(() => bellBtn.classList.remove('ringing'), 140);
-      }
-
-      if (isHost) {
+      if ( isHost) {
         hostProcessBell(myClientId);
       } else {
         if (guestConn && guestConn.open) {
@@ -1222,7 +1331,7 @@
       }
     }
 
-    function hostProcessFlip(playerId) {
+    function hostProcessFlip(playerId, isTimeoutAuto = false) {
       if (!isHost || roomState.status !== 'playing') return;
       const currentPlayer = roomState.players[roomState.currentTurnIndex];
       if (!currentPlayer || currentPlayer.id !== playerId) return;
@@ -1237,7 +1346,11 @@
       currentPlayer.openPile.push(flippedCard);
       syncClosedCounts();
 
-      roomState.bannerMessage = `🃏 ${currentPlayer.name}님이 [${flippedCard.emoji} ${flippedCard.fruitName} ${flippedCard.count}개] 카드를 펼쳤습니다.`;
+      if (isTimeoutAuto) {
+        roomState.bannerMessage = `⏰ [${currentPlayer.name}] 10초 제한시간 초과! 자동으로 [${flippedCard.emoji} ${flippedCard.fruitName} ${flippedCard.count}개] 카드를 뒤집었습니다.`;
+      } else {
+        roomState.bannerMessage = `🃏 ${currentPlayer.name}님이 [${flippedCard.emoji} ${flippedCard.fruitName} ${flippedCard.count}개] 카드를 펼쳤습니다.`;
+      }
 
       hostCheckEliminations();
       if (roomState.status !== 'playing') return;
@@ -1269,6 +1382,7 @@
       }
 
       roomState.currentTurnIndex = nextIdx;
+      roomState.turnTimeRemaining = TURN_DURATION_SECONDS; // 새 턴 10초 리셋
       scheduleHostAITurn();
     }
 
@@ -1352,6 +1466,7 @@
         if (roomState.status !== 'playing') return;
 
         roomState.currentTurnIndex = ringerIdx;
+        roomState.turnTimeRemaining = TURN_DURATION_SECONDS;
         if ((hostClosedDecks[ringer.id]?.length || 0) === 0) {
           hostAdvanceTurn();
         } else {
@@ -1378,6 +1493,7 @@
         hostCheckEliminations();
         if (roomState.status !== 'playing') return;
 
+        roomState.turnTimeRemaining = TURN_DURATION_SECONDS;
         const currentP = roomState.players[roomState.currentTurnIndex];
         if (!currentP || currentP.eliminated || (hostClosedDecks[currentP.id]?.length || 0) === 0) {
           hostAdvanceTurn();
@@ -1462,18 +1578,19 @@
       return `${m}:${s}`;
     }
 
+    // 과일이 카드 밖으로 절대 벗어나지 않도록 크기를 제한한 3x3 그리드 렌더링
     function renderFruitCardHtml(card, compact = false) {
       if (!card) {
-        return `<span class="text-[11px] text-gray-400 font-semibold">비어 있음</span>`;
+        return `<span class="text-[10px] text-gray-400 font-semibold leading-none text-center">비어 있음</span>`;
       }
       const positions = PIP_POSITIONS[card.count] || [4];
-      const sizeClass = compact ? 'text-base sm:text-lg' : 'text-xl sm:text-2xl';
+      const sizeClass = compact ? 'fruit-pip-seat' : 'fruit-pip-my';
       let cells = '';
       for (let i = 0; i < 9; i++) {
         if (positions.includes(i)) {
-          cells += `<span class="${sizeClass} leading-none drop-shadow-sm">${card.emoji}</span>`;
+          cells += `<span class="fruit-pip-item ${sizeClass} drop-shadow-sm">${card.emoji}</span>`;
         } else {
-          cells += `<span></span>`;
+          cells += `<span class="fruit-pip-item"></span>`;
         }
       }
       return `<div class="fruit-pip-grid">${cells}</div>`;
@@ -1484,11 +1601,11 @@
       if (cardCount <= 0) {
         return `<div class="text-[11px] text-white/40 font-semibold text-center my-auto">카드 없음</div>`;
       }
-      // 최대 28장까지 시각적 레이어로 촘촘히 쌓아 두께감을 표현
-      const visibleLayers = Math.min(cardCount, 28);
+      // 최대 26장까지 시각적 레이어로 촘촘히 쌓아 두께감을 표현
+      const visibleLayers = Math.min(cardCount, 26);
       let layersHtml = '';
       for (let i = 0; i < visibleLayers; i++) {
-        const offsetY = i * 1.45;
+        const offsetY = i * 1.15;
         const offsetX = (i % 2 === 0 ? 1 : -1) * 0.5;
         layersHtml += `
           <div
@@ -1501,7 +1618,7 @@
     }
 
     function renderGameScreen() {
-      // 1. 4분 타이머 업데이트
+      // 1. 4분 전체 타이머 업데이트
       const timerText = document.getElementById('timer-text');
       timerText.textContent = formatTime(roomState.timeRemaining);
       if (roomState.timeRemaining <= 30) {
@@ -1513,8 +1630,30 @@
       const progressPct = Math.max(0, (roomState.timeRemaining / GAME_DURATION_SECONDS) * 100);
       document.getElementById('timer-progress-bar').style.width = `${progressPct}%`;
 
-      // 2. 상태 배너
+      // 1-2. 10초 카드 뒤집기 제한시간 업데이트
+      const turnSec = roomState.turnTimeRemaining ?? TURN_DURATION_SECONDS;
+      const turnPct = Math.max(0, (turnSec / TURN_DURATION_SECONDS) * 100);
+      const turnBar = document.getElementById('turn-timer-bar');
+      const turnText = document.getElementById('turn-timer-text');
+      if (turnBar && turnText) {
+        turnBar.style.width = `${turnPct}%`;
+        turnText.textContent = `${turnSec}초`;
+        if (turnSec <= 3) {
+          turnBar.className = 'h-full bg-rose-500 transition-all duration-300';
+          turnText.className = 'font-mono font-black text-xs sm:text-sm text-rose-400 animate-pulse min-w-[32px] text-right';
+        } else {
+          turnBar.className = 'h-full bg-amber-400 transition-all duration-300';
+          turnText.className = 'font-mono font-black text-xs sm:text-sm text-white min-w-[32px] text-right';
+        }
+      }
+
+      // 2. 상태 배너 및 중앙 턴 안내
       document.getElementById('game-status-banner').textContent = roomState.bannerMessage;
+      const activeTurnPlayer = roomState.players[roomState.currentTurnIndex];
+      const centerTurnInfo = document.getElementById('table-center-turn-info');
+      if (centerTurnInfo && activeTurnPlayer) {
+        centerTurnInfo.textContent = `🎯 ${activeTurnPlayer.name}님 차례 (${turnSec}초)`;
+      }
 
       // 3. 바닥 총 오픈 카드 및 생존자 수 계산
       let totalOpenCards = 0;
@@ -1526,64 +1665,74 @@
       document.getElementById('table-open-total').textContent = `${totalOpenCards}장`;
       document.getElementById('table-survivors-count').textContent = `${survivorsCount} / ${roomState.players.length}명`;
 
-      // 4. 내 플레이어 정보와 상대 플레이어 분리
-      const myPlayer = roomState.players.find(p => p.id === myClientId) || roomState.players[0];
-      const opponents = roomState.players.filter(p => p.id !== myPlayer.id);
+      // 4. 내 플레이어 기준 시계방향으로 원탁 좌석(최대 8인) 배치
+      const totalP = roomState.players.length;
+      let myIndex = roomState.players.findIndex(p => p.id === myClientId);
+      if (myIndex === -1) myIndex = 0;
+      const myPlayer = roomState.players[myIndex];
 
-      // 5. 상대 플레이어 그리드 렌더링
-      const oppGrid = document.getElementById('opponents-grid');
-      let oppHtml = '';
-      opponents.forEach(opp => {
-        const oppIdx = roomState.players.findIndex(p => p.id === opp.id);
-        const isTurn = roomState.status === 'playing' && roomState.currentTurnIndex === oppIdx;
-        const topCard = opp.openPile && opp.openPile.length > 0 ? opp.openPile[opp.openPile.length - 1] : null;
-        const miniLayers = Math.min(opp.closedCount, 8);
-        let miniStackHtml = '';
-        for (let m = 0; m < miniLayers; m++) {
-          miniStackHtml += `<div class="w-5 h-7 rounded bg-red-600 border border-white/80 absolute" style="bottom:${m * 1.5}px; left:${m * 0.6}px;"></div>`;
-        }
+      const seatsContainer = document.getElementById('round-table-seats');
+      let seatsHtml = '';
 
-        oppHtml += `
-          <div class="bg-black/45 border-2 ${isTurn ? 'turn-highlight' : 'border-white/15'} ${opp.eliminated ? 'opacity-40 grayscale' : ''} rounded-xl p-2 flex flex-col justify-between transition">
+      // 나를 항상 6시 방향(90도)에 두고 시계방향으로 원탁 테두리에 배치
+      const radiusX = 41; // 원탁 가로 반경 (%)
+      const radiusY = 39; // 원탁 세로 반경 (%)
+
+      for (let offset = 0; offset < totalP; offset++) {
+        const pIdx = (myIndex + offset) % totalP;
+        const p = roomState.players[pIdx];
+        const isMe = p.id === myPlayer.id;
+        const isTurn = roomState.status === 'playing' && roomState.currentTurnIndex === pIdx;
+        const topCard = p.openPile && p.openPile.length > 0 ? p.openPile[p.openPile.length - 1] : null;
+
+        // 각도: offset=0일 때 90도(하단 6시 방향), 이후 시계방향 회전
+        const angleDeg = 90 + (offset * (360 / totalP));
+        const angleRad = (angleDeg * Math.PI) / 180;
+
+        const leftPct = 50 + radiusX * Math.cos(angleRad);
+        const topPct = 50 + radiusY * Math.sin(angleRad);
+
+        seatsHtml += `
+          <div
+            class="table-seat pointer-events-auto bg-black/75 border-2 ${isTurn ? 'turn-highlight' : (isMe ? 'border-emerald-400/80' : 'border-white/20')} ${p.eliminated ? 'opacity-40 grayscale' : ''} rounded-xl p-1.5 sm:p-2 shadow-xl w-[104px] sm:w-[122px]"
+            style="left: ${leftPct.toFixed(2)}%; top: ${topPct.toFixed(2)}%;"
+          >
+            <!-- 플레이어 이름 & 남은 턴 초 표시 -->
             <div class="flex items-center justify-between gap-1 mb-1">
-              <span class="font-extrabold text-xs text-white truncate">
-                ${opp.isAI ? '🤖' : '👤'} ${escapeHtml(opp.name)}
+              <span class="font-extrabold text-[10px] sm:text-[11px] ${isMe ? 'text-emerald-300' : 'text-white'} truncate">
+                ${isMe ? '⭐나' : (p.isAI ? '🤖' : '👤')}${escapeHtml(p.name)}
               </span>
-              ${isTurn ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-400 text-amber-950 font-black shrink-0">차례</span>' : ''}
+              ${isTurn
+                ? `<span class="text-[9px] px-1 py-0.2 rounded bg-amber-400 text-amber-950 font-black shrink-0">${turnSec}s</span>`
+                : `<span class="text-[9px] text-amber-300 font-bold shrink-0">${p.closedCount}장</span>`
+              }
             </div>
 
-            <div class="flex items-center justify-around gap-1.5 my-1">
-              <!-- 상대방 겹친 덱 + 남은 장수 -->
-              <div class="flex flex-col items-center">
-                <div class="relative w-8 h-11 flex items-end justify-center">
-                  ${miniStackHtml}
-                </div>
-                <span class="text-[11px] font-black text-amber-300 mt-0.5">${opp.closedCount}장</span>
+            <!-- 좌석 내 미니 카드 영역: [뒷면 덱] + [펼친 과일 카드] -->
+            <div class="flex items-center justify-center gap-1.5">
+              <div class="w-8 h-11 sm:w-9 sm:h-12 rounded bg-gradient-to-br from-red-600 to-red-800 border border-white/80 flex flex-col items-center justify-center shadow shrink-0">
+                <span class="text-[9px] font-black text-white leading-none">${p.closedCount}</span>
+                <span class="text-[7px] text-red-100 mt-0.5">DECK</span>
               </div>
 
-              <!-- 상대방 오픈 카드 -->
-              <div class="w-16 h-20 sm:w-18 sm:h-24 rounded-lg bg-amber-50 border border-gray-300 shadow flex items-center justify-center p-1 text-gray-900">
+              <div class="w-11 h-14 sm:w-12 sm:h-16 rounded-md bg-amber-50 border border-gray-300 shadow flex items-center justify-center p-0.5 text-gray-900 overflow-hidden shrink-0">
                 ${renderFruitCardHtml(topCard, true)}
               </div>
             </div>
-
-            <div class="text-[10px] text-emerald-200/80 text-center font-semibold">
-              바닥 ${opp.openPile?.length || 0}장
-            </div>
           </div>
         `;
-      });
-      oppGrid.innerHTML = oppHtml;
+      }
+      seatsContainer.innerHTML = seatsHtml;
 
-      // 6. 하단 내 영역 (겹쳐 쌓인 내 카드 더미 + 내 카드 뒤집기 + 내 오픈 카드) 렌더링
-      const myIdx = roomState.players.findIndex(p => p.id === myPlayer.id);
-      const isMyTurn = roomState.status === 'playing' && roomState.currentTurnIndex === myIdx;
+      // 5. 하단 내 영역 (겹쳐 쌓인 내 카드 더미 + 내 카드 뒤집기 + 내 오픈 카드) 렌더링
+      const isMyTurn = roomState.status === 'playing' && roomState.currentTurnIndex === myIndex;
       const myPanel = document.getElementById('my-player-panel');
       const myTurnBadge = document.getElementById('my-turn-badge');
 
       if (isMyTurn) {
         myPanel.classList.add('turn-highlight');
         myTurnBadge.classList.remove('hidden');
+        myTurnBadge.textContent = `내 차례! (${turnSec}초 안에 뒤집기)`;
       } else {
         myPanel.classList.remove('turn-highlight');
         myTurnBadge.classList.add('hidden');
