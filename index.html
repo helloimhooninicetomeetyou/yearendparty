@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>할리갈리 모바일 온라인 (최대 8인)</title>
+  <title>할리갈리 모바일 온라인 v13 (관전자 순위 보드)</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- PeerJS for Serverless WebRTC Multiplayer on GitHub Pages -->
@@ -198,25 +198,31 @@
       height: 100%;
       line-height: 1;
       user-select: none;
+      /* 이모지 자체에는 CSS stroke가 없어 다중 drop-shadow로 굵은 외곽선을 표현 */
+      filter:
+        drop-shadow(2px 0 0 #111827) drop-shadow(-2px 0 0 #111827)
+        drop-shadow(0 2px 0 #111827) drop-shadow(0 -2px 0 #111827)
+        drop-shadow(1.5px 1.5px 0 #111827) drop-shadow(-1.5px 1.5px 0 #111827)
+        drop-shadow(1.5px -1.5px 0 #111827) drop-shadow(-1.5px -1.5px 0 #111827);
     }
 
-    /* 원탁 좌석용 소형 과일 크기 */
+    /* 원탁 좌석 과일을 크게 표시 */
     .fruit-pip-seat {
-      font-size: 11px;
+      font-size: 22px;
     }
     @media (min-width: 640px) {
       .fruit-pip-seat {
-        font-size: 13px;
+        font-size: 27px;
       }
     }
 
-    /* 내 하단 패널용 중형 과일 크기 */
+    /* 내 하단 오픈 카드의 과일도 확대 */
     .fruit-pip-my {
-      font-size: 16px;
+      font-size: 21px;
     }
     @media (min-width: 640px) {
       .fruit-pip-my {
-        font-size: 19px;
+        font-size: 25px;
       }
     }
 
@@ -228,6 +234,67 @@
     ::-webkit-scrollbar-thumb {
       background: rgba(255, 255, 255, 0.25);
       border-radius: 9999px;
+    }
+
+    /* 관전자 전용 상단 실시간 순위 보드 */
+    #spectator-ranking-panel {
+      width: 100%;
+      max-width: 900px;
+      margin: 2px auto 0;
+    }
+
+    .spectator-ranking-scroll {
+      display: flex;
+      gap: 7px;
+      overflow-x: auto;
+      padding: 2px 2px 5px;
+      scrollbar-width: thin;
+    }
+
+    .spectator-rank-item {
+      min-width: 112px;
+      flex: 1 0 112px;
+      max-width: 180px;
+      border-radius: 12px;
+      padding: 7px 9px;
+      background: rgba(0, 0, 0, 0.58);
+      border: 1px solid rgba(255,255,255,0.16);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+
+    .spectator-rank-item.rank-first {
+      border-color: rgba(251, 191, 36, 0.85);
+      background: rgba(120, 75, 10, 0.45);
+    }
+
+    /* 관전자일 때 하단 조작 패널 공간을 없애고 테이블을 화면 중앙에 크게 배치 */
+    #screen-game.spectator-view {
+      justify-content: flex-start;
+    }
+
+    #screen-game.spectator-view #round-table-arena {
+      max-width: 760px;
+      height: min(54dvh, 500px);
+      min-height: 370px;
+    }
+
+    #screen-game.spectator-view > section:nth-of-type(2) {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    @media (max-width: 639px) {
+      #screen-game.spectator-view #round-table-arena {
+        height: min(52dvh, 430px);
+        min-height: 350px;
+      }
+      .spectator-rank-item {
+        min-width: 104px;
+        flex-basis: 104px;
+      }
     }
   </style>
 </head>
@@ -354,6 +421,12 @@
             <i class="fa-solid fa-plus-circle"></i> 멀티플레이 게임 방 만들기
           </button>
           <button
+            onclick="createRoom(false, true)"
+            class="w-full py-3 rounded-xl bg-violet-500/80 hover:bg-violet-500 active:scale-[0.99] text-white font-black text-sm border border-violet-300/30 transition flex items-center justify-center gap-2"
+          >
+            <i class="fa-solid fa-eye"></i> 방을 만들고 관전자로 참여하기
+          </button>
+          <button
             onclick="createRoom(true)"
             class="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-amber-200 font-bold text-xs sm:text-sm border border-white/15 transition"
           >
@@ -389,11 +462,14 @@
         </div>
 
         <button
-          onclick="joinRoom()"
+          onclick="joinRoom(false)"
           id="join-room-btn"
           class="mt-5 w-full py-3.5 rounded-xl bg-sky-400 hover:bg-sky-300 active:scale-[0.99] text-sky-950 font-black text-base shadow-lg transition flex items-center justify-center gap-2"
         >
-          <i class="fa-solid fa-right-to-bracket"></i> 방 입장하기
+          <i class="fa-solid fa-right-to-bracket"></i> 플레이어로 입장하기
+        </button>
+        <button onclick="joinRoom(true)" class="mt-2 w-full py-3 rounded-xl bg-violet-500/80 hover:bg-violet-500 text-white font-black text-sm border border-violet-300/30 transition">
+          <i class="fa-solid fa-eye mr-1"></i> 관전자로 입장하기 (인원 제한 없음)
         </button>
       </section>
     </div>
@@ -437,6 +513,7 @@
         </div>
       </div>
 
+      <p class="mt-3 text-xs font-semibold text-violet-200">👁️ 현재 관전자 <span id="waiting-spectator-count">0</span>명 (플레이어 정원과 별도)<span id="host-spectator-label" class="hidden ml-2 px-2 py-0.5 rounded bg-violet-500/20 border border-violet-400/30">방장 관전 중</span></p>
       <!-- 참가자 8인 슬롯 그리드 -->
       <div class="mt-4">
         <div class="flex items-center justify-between mb-2">
@@ -493,6 +570,19 @@
       </div>
     </div>
 
+
+    <!-- 관전자 전용: 현재 보유 카드 수 실시간 순위 -->
+    <section id="spectator-ranking-panel" class="hidden bg-black/45 backdrop-blur-md border border-violet-300/25 rounded-2xl px-2.5 py-2 shadow-lg">
+      <div class="flex items-center justify-between gap-2 px-1 mb-1.5">
+        <div class="flex items-center gap-2">
+          <span class="text-violet-200 text-xs sm:text-sm font-black"><i class="fa-solid fa-ranking-star mr-1"></i>실시간 카드 순위</span>
+          <span class="text-[10px] sm:text-[11px] text-white/55">현재 보유 카드 기준</span>
+        </div>
+        <span class="text-[10px] sm:text-xs font-bold text-violet-200">👁️ 관전 모드</span>
+      </div>
+      <div id="spectator-ranking-list" class="spectator-ranking-scroll"></div>
+    </section>
+
     <!-- 원탁(Round Table) 영역: 플레이어들이 원탁 둘레에 앉고 정중앙에 벨 위치 -->
     <section class="w-full flex items-center justify-center my-0.5">
       <div id="round-table-arena" class="round-table-wrapper">
@@ -503,6 +593,7 @@
             <span class="text-emerald-200">바닥 카드 <b id="table-open-total" class="text-amber-300">0장</b></span>
             <span class="text-white/30">|</span>
             <span class="text-emerald-200">생존 <b id="table-survivors-count" class="text-white">0명</b></span>
+             <span class="text-violet-200">👁️ <b id="game-spectator-count">0</b></span>
           </div>
 
           <!-- 원탁 한가운데 위치한 할리갈리 벨 -->
@@ -716,8 +807,10 @@
      *************************************************************************/
     let myClientId = 'p_' + Math.random().toString(36).substring(2, 10);
     let myNickname = '';
-    let isHost = false;
-    let roomCode = '';
+     let isHost = false;
+     let isSpectator = false;
+     let hostSpectators = {}; // spectatorId -> { id, name }; 제한 없음
+let roomCode = '';
     let maxPlayers = 8;
     let aiSpeed = 'normal';
 
@@ -737,8 +830,9 @@
       currentTurnIndex: 0,
       bannerMessage: '게임을 시작할 준비가 되었습니다!',
       lastSound: null,
-      players: [] // { id, name, isAI, isHost, closedCount, openPile: [], eliminated: false }
-    };
+       players: [], // { id, name, isAI, isHost, closedCount, openPile: [], eliminated: false }
+       spectatorCount: 0
+};
 
     // Host 전용 전체 카드 덱 저장소 (네트워크 패킷 최소화를 위해 뒷면 카드 배열은 Host가 보유)
     let hostClosedDecks = {}; // { playerId: [card, card, ...] }
@@ -890,10 +984,13 @@
       }
     }
 
-    function createRoom(instantStartWithAI = false) {
+    function createRoom(instantStartWithAI = false, hostAsSpectator = false) {
       getValidatedNickname();
-      isHost = true;
-      maxPlayers = parseInt(document.getElementById('host-max-players').value, 10) || 8;
+       isHost = true;
+       isSpectator = hostAsSpectator;
+       hostSpectators = {};
+       hostConnections = {};
+       maxPlayers = parseInt(document.getElementById('host-max-players').value, 10) || 8;
       aiSpeed = document.getElementById('host-ai-speed').value || 'normal';
       roomCode = String(Math.floor(1000 + Math.random() * 9000));
 
@@ -905,8 +1002,9 @@
         turnTimeRemaining: TURN_DURATION_SECONDS,
         currentTurnIndex: 0,
         bannerMessage: '대기실에서 참가자를 기다리는 중입니다.',
-        lastSound: null,
-        players: [
+         lastSound: null,
+         spectatorCount: hostAsSpectator ? 1 : 0,
+         players: hostAsSpectator ? [] : [
           {
             id: myClientId,
             name: myNickname,
@@ -932,8 +1030,12 @@
       } else {
         switchScreen('waiting');
         renderWaitingRoom();
-        showToast(`방 [${roomCode}]이 개설되었습니다!`);
+        showToast(hostAsSpectator ? `방 [${roomCode}]이 개설되었습니다. 방장은 관전자로 참여합니다!` : `방 [${roomCode}]이 개설되었습니다!`);
       }
+    }
+
+    function getHostSpectatorCount() {
+      return Object.keys(hostSpectators).length + (isHost && isSpectator ? 1 : 0);
     }
 
     function initHostPeer(code) {
@@ -943,15 +1045,21 @@
       try {
         peer = new Peer(PEER_PREFIX + code);
         peer.on('open', () => {
-          updateConnectionBadge(`방 코드 ${code} 활성`, 'emerald');
+          updateConnectionBadge(isSpectator ? `방 코드 ${code} · 방장 관전` : `방 코드 ${code} 활성`, 'emerald');
         });
         peer.on('connection', (conn) => {
           conn.on('data', (data) => {
             handleNetworkMessage(data, conn);
           });
-          conn.on('close', () => {
-            delete hostConnections[conn.peer];
-          });
+           conn.on('close', () => {
+             const departed = Object.keys(hostConnections).filter(id => hostConnections[id] === conn);
+             departed.forEach(id => {
+               delete hostConnections[id];
+               if (hostSpectators[id]) delete hostSpectators[id];
+             });
+             roomState.spectatorCount = getHostSpectatorCount();
+             if (departed.length) broadcastState();
+           });
         });
         peer.on('error', () => {
           updateConnectionBadge(`로컬/오프라인 호스트 (${code})`, 'amber');
@@ -961,16 +1069,17 @@
       }
     }
 
-    function joinRoom() {
-      getValidatedNickname();
+     function joinRoom(asSpectator = false) {
+       getValidatedNickname();
       const codeInput = document.getElementById('join-code-input').value.trim();
       if (!/^\d{4}$/.test(codeInput)) {
         document.getElementById('join-status-msg').textContent = '4자리 숫자 방 코드를 정확히 입력해주세요.';
         return;
       }
 
-      isHost = false;
-      roomCode = codeInput;
+       isHost = false;
+       isSpectator = asSpectator;
+       roomCode = codeInput;
       document.getElementById('join-status-msg').textContent = `방 [${roomCode}]에 연결하는 중...`;
       updateConnectionBadge(`방 ${roomCode} 접속중...`, 'amber');
 
@@ -980,7 +1089,8 @@
       if (localChannel) {
         localChannel.postMessage({
           type: 'JOIN_REQUEST',
-          player: { id: myClientId, name: myNickname }
+          player: { id: myClientId, name: myNickname },
+          spectator: isSpectator
         });
       }
 
@@ -994,7 +1104,8 @@
             updateConnectionBadge(`방 ${roomCode} 연결됨`, 'emerald');
             guestConn.send({
               type: 'JOIN_REQUEST',
-              player: { id: myClientId, name: myNickname }
+              player: { id: myClientId, name: myNickname },
+              spectator: isSpectator
             });
           });
           guestConn.on('data', (data) => {
@@ -1014,64 +1125,71 @@
       }
     }
 
+    // 네트워크 메시지 단일 진입점: 방장 권위 유지, 관전자/플레이어 별도 관리
     function handleNetworkMessage(msg, conn) {
       if (!msg || !msg.type) return;
-
       if (isHost) {
         if (msg.type === 'JOIN_REQUEST') {
-          if (conn) {
-            hostConnections[msg.player.id] = conn;
-          }
-          const exists = roomState.players.find(p => p.id === msg.player.id);
-          if (!exists) {
+          if (!msg.player || typeof msg.player.id !== 'string') return;
+          const id = msg.player.id;
+          if (conn) hostConnections[id] = conn;
+          if (msg.spectator) {
+            // 관전자는 인원 제한 없이 입장 가능하며 플레이어 덱을 갖지 않음
+            if (!roomState.players.some(p => p.id === id)) {
+              hostSpectators[id] = { id, name: String(msg.player.name || '관전자').slice(0, 10) };
+            }
+          } else if (!roomState.players.some(p => p.id === id)) {
+            if (roomState.status !== 'waiting') {
+              sendToGuest(conn, { type: 'JOIN_REJECTED', reason: '게임 진행 중에는 플레이어로 참가할 수 없습니다. 관전자로 입장해주세요.' });
+              return;
+            }
             if (roomState.players.length >= roomState.maxPlayers) {
-              // 만약 AI 봇이 있으면 AI 봇 1명을 빼고 실제 유저를 넣어줌
               const botIdx = roomState.players.findIndex(p => p.isAI);
-              if (botIdx !== -1 && roomState.status === 'waiting') {
-                roomState.players.splice(botIdx, 1);
-              } else {
-                sendToGuest(conn, { type: 'JOIN_REJECTED', reason: '방 인원이 가득 찼습니다 (최대 8명).' });
+              if (botIdx !== -1) roomState.players.splice(botIdx, 1);
+              else {
+                sendToGuest(conn, { type: 'JOIN_REJECTED', reason: '플레이어 정원이 가득 찼습니다. 관전자로 입장할 수 있습니다.' });
                 return;
               }
             }
-            roomState.players.push({
-              id: msg.player.id,
-              name: msg.player.name,
-              isAI: false,
-              isHost: false,
-              closedCount: 0,
-              openPile: [],
-              eliminated: false
-            });
+            roomState.players.push({ id, name: String(msg.player.name || '플레이어').slice(0, 10), isAI: false, isHost: false, closedCount: 0, openPile: [], eliminated: false });
             showToast(`${msg.player.name}님이 입장했습니다!`);
           }
+          roomState.spectatorCount = getHostSpectatorCount();
           broadcastState();
-        } else if (msg.type === 'ACTION_FLIP') {
-          hostProcessFlip(msg.playerId);
-        } else if (msg.type === 'ACTION_BELL') {
-          hostProcessBell(msg.playerId);
+        } else if (msg.type === 'LEAVE_REQUEST') {
+          delete hostSpectators[msg.playerId];
+          delete hostConnections[msg.playerId];
+          if (roomState.status === 'waiting') roomState.players = roomState.players.filter(p => p.id !== msg.playerId);
+          roomState.spectatorCount = getHostSpectatorCount();
+          broadcastState();
+        } else if (msg.type === 'ACTION_FLIP' || msg.type === 'ACTION_BELL') {
+          // 관전자 입력 무시. 원격 연결의 ID도 확인
+          const id = msg.playerId;
+          if (hostSpectators[id] || !roomState.players.some(p => p.id === id && !p.isAI)) return;
+          if (conn && hostConnections[id] !== conn) return;
+          if (msg.type === 'ACTION_FLIP') hostProcessFlip(id);
+          else hostProcessBell(id);
         }
       } else {
-        // Guest 입장
         if (msg.type === 'STATE_SYNC') {
+          if (!msg.state || msg.state.roomCode !== roomCode) return;
+          const previousBanner = roomState.bannerMessage;
+          const oldStatus = roomState.status;
           roomState = msg.state;
           document.getElementById('join-status-msg').textContent = '';
-          updateConnectionBadge(`방 ${roomState.roomCode} 참가중`, 'emerald');
-
-          if (roomState.lastSound) {
-            playSoundEffect(roomState.lastSound);
+          updateConnectionBadge(`방 ${roomState.roomCode} ${isSpectator ? '관전중' : '참가중'}`, 'emerald');
+          if (roomState.lastSound) playSoundEffect(roomState.lastSound);
+          if (roomState.status === 'playing' && oldStatus === 'playing' && previousBanner !== roomState.bannerMessage) {
+            const match = roomState.bannerMessage.match(/\[(.*?)\]/);
+            const name = match ? match[1] : '플레이어';
+            if (roomState.bannerMessage.includes('종 치기 성공')) triggerCenterPopup('🔔 종 치기 성공!', `${name}님이 과일 합 5개를 맞히고 바닥 카드를 획득했습니다!`, 'amber');
+            else if (roomState.bannerMessage.includes('오작동')) triggerCenterPopup('❌ 종 오작동 벌칙!', `${name}님이 잘못된 종 치기로 벌칙 카드를 분배했습니다!`, 'rose');
           }
-
           if (roomState.status === 'waiting') {
-            switchScreen('waiting');
-            renderWaitingRoom();
-          } else if (roomState.status === 'playing') {
-            switchScreen('game');
-            renderGameScreen();
-          } else if (roomState.status === 'ended') {
-            switchScreen('game');
-            renderGameScreen();
-            showResultModal();
+            switchScreen('waiting'); renderWaitingRoom();
+          } else {
+            switchScreen('game'); renderGameScreen();
+            if (roomState.status === 'ended') showResultModal();
           }
         } else if (msg.type === 'JOIN_REJECTED') {
           document.getElementById('join-status-msg').textContent = msg.reason || '입장이 거부되었습니다.';
@@ -1160,23 +1278,25 @@
     function renderWaitingRoom() {
       document.getElementById('waiting-room-code').textContent = roomState.roomCode;
       document.getElementById('waiting-player-count').textContent = roomState.players.length;
-      document.getElementById('waiting-max-players').textContent = roomState.maxPlayers;
+       document.getElementById('waiting-max-players').textContent = roomState.maxPlayers;
+       document.getElementById('waiting-spectator-count').textContent = roomState.spectatorCount || 0;
+       document.getElementById('host-spectator-label')?.classList.toggle('hidden', !(isHost && isSpectator));
 
       const addBotBtn = document.getElementById('btn-add-bot');
       const removeBotBtn = document.getElementById('btn-remove-bot');
       const startBtn = document.getElementById('btn-start-game');
-      const hostNotice = document.getElementById('waiting-host-notice');
+       const hostNotice = document.getElementById('waiting-host-notice');
 
       if (isHost) {
         addBotBtn.classList.remove('hidden');
         removeBotBtn.classList.remove('hidden');
         startBtn.classList.remove('hidden');
-        hostNotice.textContent = '빈자리에 AI 봇을 추가하거나 바로 시작할 수 있습니다.';
+        hostNotice.textContent = isSpectator ? '👁️ 방장은 관전 중입니다. 플레이어 또는 AI 봇을 2명 이상 준비한 뒤 게임을 시작하세요.' : '빈자리에 AI 봇을 추가하거나 바로 시작할 수 있습니다.';
       } else {
         addBotBtn.classList.add('hidden');
         removeBotBtn.classList.add('hidden');
         startBtn.classList.add('hidden');
-        hostNotice.textContent = '방장이 게임을 시작하기를 기다리는 중입니다...';
+        hostNotice.textContent = isSpectator ? '👁️ 관전 중 · 방장이 시작하기를 기다리는 중입니다...' : '방장이 게임을 시작하기를 기다리는 중입니다...';
       }
 
       const grid = document.getElementById('waiting-slots-grid');
@@ -1256,8 +1376,12 @@
 
     function hostStartGame() {
       if (!isHost) return;
-      if (roomState.players.length < 2) {
+      while (roomState.players.length < 2 && roomState.players.length < roomState.maxPlayers) {
         addAIBot(true);
+      }
+      if (roomState.players.length < 2) {
+        showToast('게임을 시작하려면 플레이어가 최소 2명 필요합니다.');
+        return;
       }
 
       clearAllHostTimers();
@@ -1321,8 +1445,8 @@
       });
     }
 
-    function handleFlipPress() {
-      if (roomState.status !== 'playing') return;
+     function handleFlipPress() {
+       if (roomState.status !== 'playing' || isSpectator) return;
       if (isHost) {
         hostProcessFlip(myClientId);
       } else {
@@ -1335,8 +1459,8 @@
       }
     }
 
-    function handleBellPress() {
-      if (roomState.status !== 'playing') return;
+     function handleBellPress() {
+       if (roomState.status !== 'playing' || isSpectator) return;
 
       // 즉각적인 종 버튼 시각 반응
       const bellBtn = document.getElementById('center-bell-btn');
@@ -1500,15 +1624,47 @@
         broadcastState('bell');
       } else {
         // 오작동 벌칙: 다른 모든 생존 플레이어에게 내 덱에서 1장씩 분배
-        let penaltyGiven = 0;
+        // 단, 보유한 뒷면 카드가 벌칙 카드를 받아야 할 플레이어 수보다 적으면 즉시 탈락한다.
         const ringerDeck = hostClosedDecks[ringer.id] || [];
+        const penaltyTargets = roomState.players.filter(other =>
+          other.id !== ringer.id && !other.eliminated
+        );
+        const requiredPenaltyCards = penaltyTargets.length;
 
-        roomState.players.forEach(other => {
-          if (other.id !== ringer.id && !other.eliminated && ringerDeck.length > 0) {
-            const card = ringerDeck.pop();
-            hostClosedDecks[other.id].unshift(card);
-            penaltyGiven++;
+        if (ringerDeck.length < requiredPenaltyCards) {
+          // 일부 플레이어에게만 벌칙 카드를 주지 않고 종을 잘못 친 플레이어를 즉시 탈락 처리
+          ringer.eliminated = true;
+          hostClosedDecks[ringer.id] = [];
+          ringer.openPile = [];
+          syncClosedCounts();
+
+          roomState.bannerMessage = `❌ [${ringer.name}] 오작동! 남은 카드가 ${ringerDeck.length}장으로 벌칙에 필요한 ${requiredPenaltyCards}장보다 부족하여 탈락했습니다.`;
+          triggerCenterPopup(
+            '❌ 종 오작동 · 탈락!',
+            `[${ringer.name}]님의 남은 카드가 벌칙에 필요한 카드 수보다 부족합니다!\n카드를 나눠주지 않고 즉시 탈락합니다.`,
+            'rose'
+          );
+
+          hostCheckEliminations();
+          if (roomState.status !== 'playing') return;
+
+          roomState.turnTimeRemaining = TURN_DURATION_SECONDS;
+          const currentP = roomState.players[roomState.currentTurnIndex];
+          if (!currentP || currentP.eliminated || (hostClosedDecks[currentP.id]?.length || 0) === 0) {
+            hostAdvanceTurn();
+          } else {
+            scheduleHostAITurn();
           }
+
+          broadcastState('penalty');
+          return;
+        }
+
+        let penaltyGiven = 0;
+        penaltyTargets.forEach(other => {
+          const card = ringerDeck.pop();
+          hostClosedDecks[other.id].unshift(card);
+          penaltyGiven++;
         });
 
         syncClosedCounts();
@@ -1720,13 +1876,48 @@
         if (!p.eliminated) survivorsCount++;
       });
       document.getElementById('table-open-total').textContent = `${totalOpenCards}장`;
-      document.getElementById('table-survivors-count').textContent = `${survivorsCount} / ${roomState.players.length}명`;
+       document.getElementById('table-survivors-count').textContent = `${survivorsCount} / ${roomState.players.length}명`;
+       document.getElementById('game-spectator-count').textContent = roomState.spectatorCount || 0;
+       document.getElementById('center-bell-btn').disabled = isSpectator;
+       document.getElementById('center-bell-btn').style.cursor = isSpectator ? 'default' : 'pointer';
+
+       // 관전자 전용 레이아웃: 상단 순위 + 중앙 테이블
+       const gameScreen = document.getElementById('screen-game');
+       const spectatorRankingPanel = document.getElementById('spectator-ranking-panel');
+       gameScreen.classList.toggle('spectator-view', isSpectator);
+       spectatorRankingPanel.classList.toggle('hidden', !isSpectator);
+
+       if (isSpectator) {
+         const rankingList = document.getElementById('spectator-ranking-list');
+         const rankedPlayers = [...roomState.players].sort((a, b) => {
+           if (b.closedCount !== a.closedCount) return b.closedCount - a.closedCount;
+           return String(a.name).localeCompare(String(b.name), 'ko');
+         });
+
+         rankingList.innerHTML = rankedPlayers.map((p, idx) => {
+           const rankLabel = idx === 0 ? '🥇 1위' : idx === 1 ? '🥈 2위' : idx === 2 ? '🥉 3위' : `${idx + 1}위`;
+           return `
+             <div class="spectator-rank-item ${idx === 0 ? 'rank-first' : ''} ${p.eliminated ? 'opacity-45 grayscale' : ''}">
+               <div class="flex items-center justify-between gap-1">
+                 <span class="text-[10px] sm:text-xs font-black ${idx === 0 ? 'text-amber-300' : 'text-slate-300'}">${rankLabel}</span>
+                 ${p.eliminated ? '<span class="text-[9px] font-bold text-rose-300">탈락</span>' : ''}
+               </div>
+               <div class="mt-0.5 text-[11px] sm:text-xs font-extrabold text-white truncate">${p.isAI ? '🤖 ' : '👤 '}${escapeHtml(p.name)}</div>
+               <div class="mt-0.5 text-sm sm:text-base font-black text-emerald-300">${p.closedCount}<span class="text-[10px] sm:text-xs ml-0.5 text-emerald-100/70">장</span></div>
+             </div>
+           `;
+         }).join('');
+       }
 
       // 4. 내 플레이어 기준 시계방향으로 원탁 좌석(최대 8인) 배치
       const totalP = roomState.players.length;
       let myIndex = roomState.players.findIndex(p => p.id === myClientId);
-      if (myIndex === -1) myIndex = 0;
-      const myPlayer = roomState.players[myIndex];
+       if (myIndex === -1) myIndex = 0; // 관전자는 방장 좌석을 기준으로 테이블 표시
+       const myPlayer = roomState.players[myIndex];
+       if (!myPlayer) return;
+       document.getElementById('my-player-panel').classList.toggle('hidden', isSpectator);
+       document.getElementById('my-deck-flip-btn').disabled = isSpectator;
+
 
       const seatsContainer = document.getElementById('round-table-seats');
       let seatsHtml = '';
@@ -1751,28 +1942,20 @@
 
         seatsHtml += `
           <div
-            class="table-seat pointer-events-auto bg-black/75 border-2 ${isTurn ? 'turn-highlight' : (isMe ? 'border-emerald-400/80' : 'border-white/20')} ${p.eliminated ? 'opacity-40 grayscale' : ''} rounded-xl p-1.5 sm:p-2 shadow-xl w-[104px] sm:w-[122px]"
+            class="table-seat pointer-events-auto bg-black/75 border-2 ${isTurn ? 'turn-highlight' : (isMe && !isSpectator ? 'border-emerald-400/80' : 'border-white/20')} ${p.eliminated ? 'opacity-40 grayscale' : ''} rounded-xl p-1.5 sm:p-2 shadow-xl w-[112px] sm:w-[142px]"
             style="left: ${leftPct.toFixed(2)}%; top: ${topPct.toFixed(2)}%;"
           >
             <!-- 플레이어 이름 & 남은 턴 초 표시 -->
             <div class="flex items-center justify-between gap-1 mb-1">
               <span class="font-extrabold text-[10px] sm:text-[11px] ${isMe ? 'text-emerald-300' : 'text-white'} truncate">
-                ${isMe ? '⭐나' : (p.isAI ? '🤖' : '👤')}${escapeHtml(p.name)}
+                ${isMe && !isSpectator ? '⭐나' : (p.isAI ? '🤖' : '👤')}${escapeHtml(p.name)}
               </span>
-              ${isTurn
-                ? `<span class="text-[9px] px-1 py-0.2 rounded bg-amber-400 text-amber-950 font-black shrink-0">${turnSec}s</span>`
-                : `<span class="text-[9px] text-amber-300 font-bold shrink-0">${p.closedCount}장</span>`
-              }
+              <span class="text-[10px] text-amber-300 font-bold shrink-0">${p.closedCount}장${isTurn ? ` · ${turnSec}s` : ''}</span>
             </div>
 
             <!-- 좌석 내 미니 카드 영역: [뒷면 덱] + [펼친 과일 카드] -->
             <div class="flex items-center justify-center gap-1.5">
-              <div class="w-8 h-11 sm:w-9 sm:h-12 rounded bg-gradient-to-br from-red-600 to-red-800 border border-white/80 flex flex-col items-center justify-center shadow shrink-0">
-                <span class="text-[9px] font-black text-white leading-none">${p.closedCount}</span>
-                <span class="text-[7px] text-red-100 mt-0.5">DECK</span>
-              </div>
-
-              <div class="w-11 h-14 sm:w-12 sm:h-16 rounded-md bg-amber-50 border border-gray-300 shadow flex items-center justify-center p-0.5 text-gray-900 overflow-hidden shrink-0">
+              <div class="w-[72px] h-[92px] sm:w-[94px] sm:h-[116px] rounded-lg bg-amber-50 border-2 border-gray-200 shadow flex items-center justify-center p-1 text-gray-900 overflow-hidden shrink-0">
                 ${renderFruitCardHtml(topCard, true)}
               </div>
             </div>
@@ -1844,58 +2027,27 @@
       listEl.innerHTML = html;
     }
 
-    function handleNetworkMessage(msg, conn) {
-      if (!msg || !msg.type) return;
+     function closeResultAndReturnWaiting() {
+       document.getElementById('modal-result').classList.add('hidden');
+       if (isHost) {
+         clearAllHostTimers();
+         roomState.status = 'waiting';
+         roomState.bannerMessage = '대기실에서 다음 게임을 준비 중입니다.';
+         broadcastState();
+       } else if (roomState.status === 'waiting') {
+         switchScreen('waiting'); renderWaitingRoom();
+       } else {
+         showToast('방장이 대기실로 돌아가기를 기다려주세요.');
+       }
+     }
 
-      if (isHost) {
-        roomState.status = 'waiting';
-        broadcastState();
-        switchScreen('waiting');
-        renderWaitingRoom();
-      } else {
-        // Guest 입장
-        if (msg.type === 'STATE_SYNC') {
-          const oldStatus = roomState.status;
-          roomState = msg.state;
-          document.getElementById('join-status-msg').textContent = '';
-          updateConnectionBadge(`방 ${roomState.roomCode} 참가중`, 'emerald');
-
-          if (roomState.lastSound) {
-            playSoundEffect(roomState.lastSound);
-          }
-
-          // 종 치기나 벌칙 발생 시 Guest도 중앙 팝업을 띄우기 위해 배너 메시지 변화 감지
-          if (roomState.status === 'playing' && oldStatus === 'playing') {
-            if (roomState.bannerMessage.includes('종 치기 성공')) {
-              const match = roomState.bannerMessage.match(/\[(.*?)\]/);
-              const rName = match ? match[1] : '플레이어';
-              triggerCenterPopup('🔔 종 치기 성공!', `${rName}님이 과일 합 5개를 맞히고 바닥 카드를 획득했습니다!`, 'amber');
-            } else if (roomState.bannerMessage.includes('오작동')) {
-              const match = roomState.bannerMessage.match(/\[(.*?)\]/);
-              const rName = match ? match[1] : '플레이어';
-              triggerCenterPopup('❌ 종 오작동 벌칙!', `${rName}님이 잘못된 종 치기로 벌칙 카드를 분배했습니다!`, 'rose');
-            }
-          }
-
-          if (roomState.status === 'waiting') {
-            switchScreen('waiting');
-            renderWaitingRoom();
-          } else if (roomState.status === 'playing') {
-            switchScreen('game');
-            renderGameScreen();
-          } else if (roomState.status === 'ended') {
-            switchScreen('game');
-            renderGameScreen();
-            showResultModal();
-          }
-        } else if (msg.type === 'JOIN_REJECTED') {
-          document.getElementById('join-status-msg').textContent = msg.reason || '입장이 거부되었습니다.';
-        }
-      }
-    }
-
-    function leaveRoom() {
-      clearAllHostTimers();
+     function leaveRoom() {
+       if (!isHost) {
+         const message = { type: 'LEAVE_REQUEST', playerId: myClientId };
+         if (guestConn && guestConn.open) guestConn.send(message);
+         if (localChannel) localChannel.postMessage(message);
+       }
+       clearAllHostTimers();
       if (peer) {
         peer.destroy();
         peer = null;
@@ -1904,8 +2056,11 @@
         localChannel.close();
         localChannel = null;
       }
-      document.getElementById('modal-result').classList.add('hidden');
-      updateConnectionBadge('로비 대기', 'emerald');
+       guestConn = null;
+       isSpectator = false;
+       document.getElementById('modal-result').classList.add('hidden');
+       document.getElementById('center-round-popup').classList.add('hidden');
+       updateConnectionBadge('로비 대기', 'emerald');
       switchScreen('lobby');
     }
 
