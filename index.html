@@ -168,6 +168,16 @@
       animation: pulseTurn 1.3s infinite;
     }
 
+    /* 라운드 결과 중앙 팝업 애니메이션 */
+    @keyframes popInCenter {
+      0% { transform: scale(0.6); opacity: 0; }
+      70% { transform: scale(1.06); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .animate-pop-center {
+      animation: popInCenter 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
     /* 주사위 눈 배치용 3x3 과일 그리드 (카드 밖 이탈 방지) */
     .fruit-pip-grid {
       display: grid;
@@ -605,6 +615,17 @@
           대기실로 돌아가기
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- ==================== 6. 라운드 결과 중앙 큰 팝업 배너 ==================== -->
+  <div id="center-round-popup" class="hidden fixed inset-0 pointer-events-none z-40 flex items-center justify-center p-4">
+    <div id="center-round-popup-card" class="pointer-events-auto bg-black/90 border-4 border-amber-400 rounded-3xl p-6 sm:p-8 max-w-lg w-full text-center shadow-2xl animate-pop-center backdrop-blur-md">
+      <div id="popup-emoji" class="text-4xl sm:text-5xl mb-2">🔔</div>
+      <h3 id="popup-title" class="text-xl sm:text-2xl font-black text-amber-300 tracking-tight">라운드 결과</h3>
+      <p id="popup-desc" class="text-sm sm:text-base text-white font-bold mt-2 leading-relaxed">
+        결과 내용이 여기에 표시됩니다.
+      </p>
     </div>
   </div>
 
@@ -1462,6 +1483,9 @@
 
         roomState.bannerMessage = `🔔 [${ringer.name}] 종 치기 성공! (${matchedFruit.emoji} ${matchedFruit.name} 5개) 바닥 카드 ${collected.length}장 획득!`;
 
+        // 화면 중앙에 큼직하게 라운드 성공 결과 띄우기
+        triggerCenterPopup('🔔 종 치기 성공!', `[${ringer.name}]님이 정확히 ${matchedFruit.emoji} ${matchedFruit.name} 5개를 맞혔습니다!\n바닥 카드 ${collected.length}장을 획득합니다!`, 'amber');
+
         hostCheckEliminations();
         if (roomState.status !== 'playing') return;
 
@@ -1490,6 +1514,9 @@
         syncClosedCounts();
         roomState.bannerMessage = `❌ [${ringer.name}] 오작동! 과일 합이 5개가 아닙니다. 벌칙으로 총 ${penaltyGiven}장을 분배했습니다.`;
 
+        // 화면 중앙에 큼직하게 오작동 벌칙 결과 띄우기
+        triggerCenterPopup('❌ 종 오작동 벌칙!', `[${ringer.name}]님이 과일 합이 5개가 아닌데 종을 쳤습니다!\n벌칙으로 다른 플레이어에게 카드 ${penaltyGiven}장을 나눠줍니다.`, 'rose');
+
         hostCheckEliminations();
         if (roomState.status !== 'playing') return;
 
@@ -1503,6 +1530,36 @@
 
         broadcastState('penalty');
       }
+    }
+
+    // 화면 중앙에 라운드 결과 팝업을 잠시 띄우는 함수 (모든 클라이언트 동기화 지원)
+    let centerPopupTimer = null;
+    function triggerCenterPopup(title, desc, theme = 'amber') {
+      const popup = document.getElementById('center-round-popup');
+      const card = document.getElementById('center-round-popup-card');
+      const titleEl = document.getElementById('popup-title');
+      const descEl = document.getElementById('popup-desc');
+      const emojiEl = document.getElementById('popup-emoji');
+
+      titleEl.textContent = title;
+      descEl.textContent = desc;
+
+      if (theme === 'rose') {
+        card.className = 'pointer-events-auto bg-black/90 border-4 border-rose-500 rounded-3xl p-6 sm:p-8 max-w-lg w-full text-center shadow-2xl animate-pop-center backdrop-blur-md';
+        titleEl.className = 'text-xl sm:text-2xl font-black text-rose-400 tracking-tight';
+        emojiEl.textContent = '❌';
+      } else {
+        card.className = 'pointer-events-auto bg-black/90 border-4 border-amber-400 rounded-3xl p-6 sm:p-8 max-w-lg w-full text-center shadow-2xl animate-pop-center backdrop-blur-md';
+        titleEl.className = 'text-xl sm:text-2xl font-black text-amber-300 tracking-tight';
+        emojiEl.textContent = '🔔';
+      }
+
+      popup.classList.remove('hidden');
+      if (centerPopupTimer) clearTimeout(centerPopupTimer);
+
+      centerPopupTimer = setTimeout(() => {
+        popup.classList.add('hidden');
+      }, 2400); // 2.4초 후 자동 페이드아웃
     }
 
     function hostCheckEliminations() {
@@ -1787,16 +1844,53 @@
       listEl.innerHTML = html;
     }
 
-    function closeResultAndReturnWaiting() {
-      document.getElementById('modal-result').classList.add('hidden');
+    function handleNetworkMessage(msg, conn) {
+      if (!msg || !msg.type) return;
+
       if (isHost) {
         roomState.status = 'waiting';
         broadcastState();
         switchScreen('waiting');
         renderWaitingRoom();
       } else {
-        switchScreen('waiting');
-        renderWaitingRoom();
+        // Guest 입장
+        if (msg.type === 'STATE_SYNC') {
+          const oldStatus = roomState.status;
+          roomState = msg.state;
+          document.getElementById('join-status-msg').textContent = '';
+          updateConnectionBadge(`방 ${roomState.roomCode} 참가중`, 'emerald');
+
+          if (roomState.lastSound) {
+            playSoundEffect(roomState.lastSound);
+          }
+
+          // 종 치기나 벌칙 발생 시 Guest도 중앙 팝업을 띄우기 위해 배너 메시지 변화 감지
+          if (roomState.status === 'playing' && oldStatus === 'playing') {
+            if (roomState.bannerMessage.includes('종 치기 성공')) {
+              const match = roomState.bannerMessage.match(/\[(.*?)\]/);
+              const rName = match ? match[1] : '플레이어';
+              triggerCenterPopup('🔔 종 치기 성공!', `${rName}님이 과일 합 5개를 맞히고 바닥 카드를 획득했습니다!`, 'amber');
+            } else if (roomState.bannerMessage.includes('오작동')) {
+              const match = roomState.bannerMessage.match(/\[(.*?)\]/);
+              const rName = match ? match[1] : '플레이어';
+              triggerCenterPopup('❌ 종 오작동 벌칙!', `${rName}님이 잘못된 종 치기로 벌칙 카드를 분배했습니다!`, 'rose');
+            }
+          }
+
+          if (roomState.status === 'waiting') {
+            switchScreen('waiting');
+            renderWaitingRoom();
+          } else if (roomState.status === 'playing') {
+            switchScreen('game');
+            renderGameScreen();
+          } else if (roomState.status === 'ended') {
+            switchScreen('game');
+            renderGameScreen();
+            showResultModal();
+          }
+        } else if (msg.type === 'JOIN_REJECTED') {
+          document.getElementById('join-status-msg').textContent = msg.reason || '입장이 거부되었습니다.';
+        }
       }
     }
 
