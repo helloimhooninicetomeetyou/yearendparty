@@ -375,7 +375,7 @@
         <div>
           <div class="flex items-center justify-between">
             <span class="text-xs font-extrabold px-2.5 py-1 rounded-lg bg-amber-400 text-amber-950">방장 (HOST)</span>
-            <span class="text-xs text-emerald-200 font-semibold">최대 8명 · 4분 타이머</span>
+            <span class="text-xs text-emerald-200 font-semibold">최대 8명 · 시간 설정 가능</span>
           </div>
           <h3 class="text-xl font-black text-white mt-3">새로운 게임 방 개설</h3>
           <p class="text-xs text-emerald-100/80 mt-1 leading-relaxed">
@@ -398,9 +398,18 @@
 
             <div class="flex items-center justify-between text-xs sm:text-sm">
               <span class="text-emerald-200 font-semibold">제한 시간</span>
-              <span class="px-3 py-1 rounded-lg bg-amber-400/20 text-amber-300 border border-amber-400/40 font-extrabold text-xs sm:text-sm">
-                ⏱️ 4분 (240초) 고정
-              </span>
+              <select id="host-game-minutes" class="bg-white text-gray-900 font-bold px-3 py-1.5 rounded-lg text-xs sm:text-sm" aria-label="게임 제한 시간">
+                <option value="1">1분</option>
+                <option value="2">2분</option>
+                <option value="3">3분</option>
+                <option value="4" selected>4분 (기본)</option>
+                <option value="5">5분</option>
+                <option value="7">7분</option>
+                <option value="10">10분</option>
+                <option value="15">15분</option>
+                <option value="20">20분</option>
+                <option value="30">30분</option>
+              </select>
             </div>
 
             <div class="flex items-center justify-between text-xs sm:text-sm">
@@ -483,7 +492,7 @@
         <div>
           <div class="flex items-center gap-2">
             <span class="px-2.5 py-0.5 rounded-md bg-amber-400 text-amber-950 font-black text-xs">WAITING ROOM</span>
-            <span class="text-xs text-emerald-300 font-semibold">제한 시간 4분 · 5인 이상 시 112장 더블 덱 자동 적용</span>
+            <span class="text-xs text-emerald-300 font-semibold">제한 시간 <span id="waiting-duration-label">4분</span> · 5인 이상 시 112장 더블 덱 자동 적용</span>
           </div>
           <h2 class="text-xl sm:text-2xl font-black text-white mt-1 flex items-center gap-3">
             방 코드: <span id="waiting-room-code" class="font-mono text-amber-300 tracking-widest bg-black/50 px-3 py-1 rounded-xl border border-amber-400/40">----</span>
@@ -763,7 +772,7 @@
     /*************************************************************************
      * 1. 상수 및 게임 데이터 정의
      *************************************************************************/
-    const GAME_DURATION_SECONDS = 240; // 4분 (240초) 제한 시간
+    const GAME_DURATION_SECONDS = 240; // 기본 4분, 방 생성 시 변경 가능
     const TURN_DURATION_SECONDS = 10;  // 각 플레이어 카드 뒤집기 제한 시간 10초
     const PEER_PREFIX = 'hg8-kr-room-';
     // GitHub Pages에서 배포할 때 아래 두 값을 입력해 두면 모든 방문자가 바로 접속 가능.
@@ -834,6 +843,7 @@
      let hostSpectators = {}; // spectatorId -> { id, name }; 제한 없음
 let roomCode = '';
     let maxPlayers = 8;
+    let kickedPlayerIds = new Set();
     let aiSpeed = 'normal';
 
     // PeerJS 및 탭 간 BroadcastChannel 통신
@@ -848,6 +858,7 @@ let roomCode = '';
       maxPlayers: 8,
       status: 'waiting', // 'waiting' | 'playing' | 'ended'
       timeRemaining: GAME_DURATION_SECONDS,
+      gameDurationSeconds: GAME_DURATION_SECONDS,
       turnTimeRemaining: TURN_DURATION_SECONDS,
       currentTurnIndex: 0,
       bannerMessage: '게임을 시작할 준비가 되었습니다!',
@@ -1013,8 +1024,12 @@ let roomCode = '';
        isSpectator = hostAsSpectator;
        hostSpectators = {};
        hostConnections = {};
+       kickedPlayerIds = new Set();
        maxPlayers = parseInt(document.getElementById('host-max-players').value, 10) || 8;
       aiSpeed = document.getElementById('host-ai-speed').value || 'normal';
+      const gameMinutes = Number(document.getElementById('host-game-minutes').value);
+      const selectedDuration = Number.isFinite(gameMinutes) && gameMinutes >= 1 && gameMinutes <= 30
+        ? Math.round(gameMinutes) * 60 : GAME_DURATION_SECONDS;
       if (!initSupabaseClient()) {
         showToast('Supabase 연결을 확인할 수 없습니다. 네트워크와 설정을 확인해주세요.');
         return;
@@ -1029,7 +1044,8 @@ let roomCode = '';
         roomCode: roomCode,
         maxPlayers: maxPlayers,
         status: 'waiting',
-        timeRemaining: GAME_DURATION_SECONDS,
+        timeRemaining: selectedDuration,
+        gameDurationSeconds: selectedDuration,
         turnTimeRemaining: TURN_DURATION_SECONDS,
         currentTurnIndex: 0,
         bannerMessage: '대기실에서 참가자를 기다리는 중입니다.',
@@ -1172,6 +1188,10 @@ let roomCode = '';
         if (msg.type === 'JOIN_REQUEST') {
           if (!msg.player || typeof msg.player.id !== 'string') return;
           const id = msg.player.id;
+          if (kickedPlayerIds.has(id)) {
+            sendToSpecificGuest(conn, id, { type: 'KICKED', playerId: id, reason: '방장에 의해 이 방에서 추방되었습니다.' });
+            return;
+          }
           if (conn) hostConnections[id] = conn;
           if (msg.spectator) {
             // 관전자는 인원 제한 없이 입장 가능하며 플레이어 덱을 갖지 않음
@@ -1231,10 +1251,33 @@ let roomCode = '';
             switchScreen('game'); renderGameScreen();
             if (roomState.status === 'ended') showResultModal();
           }
+        } else if (msg.type === 'KICKED' && msg.playerId === myClientId) {
+          leaveRoom();
+          showToast(msg.reason || '방장에 의해 추방되었습니다.');
         } else if (msg.type === 'JOIN_REJECTED') {
           document.getElementById('join-status-msg').textContent = msg.reason || '입장이 거부되었습니다.';
         }
       }
+    }
+
+    // 추방 메시지는 지정한 참가자에게만 전달 (같은 기기 다른 탭 보호)
+    function sendToSpecificGuest(conn, playerId, payload) {
+      if (conn && conn.open) conn.send(payload);
+      if (localChannel) localChannel.postMessage({ ...payload, playerId });
+    }
+
+    function kickPlayer(playerId) {
+      if (!isHost || roomState.status !== 'waiting') return;
+      const target = roomState.players.find(p => p.id === playerId);
+      if (!target || target.isHost || target.id === myClientId || target.isAI) return;
+      if (!window.confirm(`${target.name}님을 대기실에서 추방할까요?`)) return;
+      kickedPlayerIds.add(playerId);
+      const conn = hostConnections[playerId];
+      sendToSpecificGuest(conn, playerId, { type: 'KICKED', reason: '방장에 의해 이 방에서 추방되었습니다.' });
+      delete hostConnections[playerId];
+      roomState.players = roomState.players.filter(p => p.id !== playerId);
+      broadcastState();
+      showToast(`${target.name}님을 추방했습니다.`);
     }
 
     function sendToGuest(conn, payload) {
@@ -1319,6 +1362,8 @@ let roomCode = '';
 
     function renderWaitingRoom() {
       document.getElementById('waiting-room-code').textContent = roomState.roomCode;
+      document.getElementById('waiting-duration-label').textContent =
+        `${Math.round((roomState.gameDurationSeconds || GAME_DURATION_SECONDS) / 60)}분`;
       document.getElementById('waiting-player-count').textContent = roomState.players.length;
        document.getElementById('waiting-max-players').textContent = roomState.maxPlayers;
        document.getElementById('waiting-spectator-count').textContent = roomState.spectatorCount || 0;
@@ -1359,6 +1404,9 @@ let roomCode = '';
               <div class="font-extrabold text-sm sm:text-base text-white truncate mt-1">
                 ${escapeHtml(p.name)}
               </div>
+              ${isHost && !p.isHost && !p.isAI
+                ? `<button type="button" onclick="kickPlayer('${p.id}')" class="self-end px-2.5 py-1.5 rounded-lg bg-rose-600/25 hover:bg-rose-600/50 border border-rose-400/40 text-rose-100 text-xs font-bold">추방</button>`
+                : ''}
             </div>
           `;
         } else {
@@ -1386,7 +1434,7 @@ let roomCode = '';
     }
 
     /*************************************************************************
-     * 7. 게임 진행 로직 (Host 권위: 5~8인 더블 덱 분배, 4분 타이머, 종 판정)
+     * 7. 게임 진행 로직 (Host 권위: 5~8인 더블 덱 분배, 설정형 타이머, 종 판정)
      *************************************************************************/
     function buildDeck(playerCount) {
       // 5명 이상일 때는 카드가 금방 소진되지 않도록 2덱(112장)을 사용
@@ -1446,7 +1494,7 @@ let roomCode = '';
       syncClosedCounts();
 
       roomState.status = 'playing';
-      roomState.timeRemaining = GAME_DURATION_SECONDS; // 4분 (240초)
+      roomState.timeRemaining = roomState.gameDurationSeconds || GAME_DURATION_SECONDS;
       roomState.turnTimeRemaining = TURN_DURATION_SECONDS; // 10초 턴 제한시간
       roomState.currentTurnIndex = 0;
       roomState.bannerMessage = `🔔 게임 시작! 각 차례마다 10초 내에 카드를 뒤집고, 같은 과일 합이 5개가 되면 중앙의 종을 치세요!`;
@@ -1454,13 +1502,13 @@ let roomCode = '';
       switchScreen('game');
       broadcastState('flip');
 
-      // 4분 전체 타이머 및 10초 턴 제한시간 카운트다운 시작
+      // 방장이 설정한 전체 타이머 및 10초 턴 제한시간 카운트다운 시작
       countdownInterval = setInterval(() => {
         if (roomState.status !== 'playing') return;
         roomState.timeRemaining = Math.max(0, roomState.timeRemaining - 1);
 
         if (roomState.timeRemaining <= 0) {
-          hostEndGame('⏱️ 4분 제한 시간이 종료되었습니다!');
+          hostEndGame('⏱️ 설정한 제한 시간이 종료되었습니다!');
           return;
         }
 
@@ -1882,7 +1930,7 @@ let roomCode = '';
         timerText.classList.remove('text-rose-400', 'animate-pulse');
       }
 
-      const progressPct = Math.max(0, (roomState.timeRemaining / GAME_DURATION_SECONDS) * 100);
+      const progressPct = Math.max(0, (roomState.timeRemaining / (roomState.gameDurationSeconds || GAME_DURATION_SECONDS)) * 100);
       document.getElementById('timer-progress-bar').style.width = `${progressPct}%`;
 
       // 1-2. 10초 카드 뒤집기 제한시간 업데이트
@@ -2258,7 +2306,7 @@ let roomCode = '';
         timer.classList.toggle('text-rose-400', gameSeconds <= 30);
       }
       const progress = document.getElementById('timer-progress-bar');
-      if (progress) progress.style.width = `${Math.max(0, gameSeconds / GAME_DURATION_SECONDS * 100)}%`;
+      if (progress) progress.style.width = `${Math.max(0, gameSeconds / (roomState.gameDurationSeconds || GAME_DURATION_SECONDS) * 100)}%`;
       const turnProgress = document.getElementById('turn-timer-bar');
       if (turnProgress) turnProgress.style.width = `${Math.max(0, turnSeconds / TURN_DURATION_SECONDS * 100)}%`;
       const turnTimer = document.getElementById('turn-timer-text');
