@@ -1,0 +1,1846 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>할리갈리 모바일 온라인 (최대 8인)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- PeerJS for Serverless WebRTC Multiplayer on GitHub Pages -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: manipulation;
+    }
+
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at 50% 35%, #1e5b46 0%, #123c2e 65%, #092119 100%);
+      color: #ffffff;
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+
+    /* 카드 뒷면 패턴 */
+    .card-back-pattern {
+      background: repeating-linear-gradient(
+        135deg,
+        #dc2626,
+        #dc2626 8px,
+        #b91c1c 8px,
+        #b91c1c 16px
+      );
+      border: 3px solid #ffffff;
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+    }
+
+    /* 겹쳐 쌓인 내 카드 더미(시각적 스택) 레이어 */
+    .visual-stack-container {
+      position: relative;
+      width: 64px;
+      height: 100px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .stacked-card-layer {
+      position: absolute;
+      width: 50px;
+      height: 68px;
+      border-radius: 7px;
+      background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%);
+      border: 1.5px solid #fef2f2;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    /* 원탁(Round Table) 스타일 */
+    .round-table-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 680px;
+      height: 390px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    @media (min-width: 640px) {
+      .round-table-wrapper {
+        height: 450px;
+      }
+    }
+
+    .round-table-surface {
+      position: absolute;
+      width: 78%;
+      height: 76%;
+      border-radius: 9999px;
+      background: radial-gradient(circle at 50% 50%, #1f6f54 0%, #144936 70%, #0d3325 100%);
+      border: 10px solid #5c3a21;
+      box-shadow:
+        inset 0 0 35px rgba(0, 0, 0, 0.65),
+        0 12px 30px rgba(0, 0, 0, 0.6),
+        0 0 0 3px #fbbf24;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 원탁 좌석 노드 */
+    .table-seat {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      z-index: 15;
+      transition: all 0.25s ease;
+    }
+
+    /* 중앙 할리갈리 종 스타일 */
+    .halli-bell {
+      width: 92px;
+      height: 92px;
+      border-radius: 9999px;
+      background: radial-gradient(circle at 32% 28%, #fef08a 0%, #f59e0b 55%, #b45309 90%, #78350f 100%);
+      border: 4px solid #451a03;
+      box-shadow:
+        0 10px 24px rgba(0, 0, 0, 0.65),
+        0 0 0 5px rgba(245, 158, 11, 0.25),
+        inset 0 4px 10px rgba(255, 255, 255, 0.75);
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.06s ease, box-shadow 0.06s ease;
+    }
+
+    @media (min-width: 640px) {
+      .halli-bell {
+        width: 106px;
+        height: 106px;
+      }
+    }
+
+    .halli-bell::before {
+      content: "";
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 20px;
+      height: 20px;
+      border-radius: 9999px;
+      background: radial-gradient(circle at 30% 30%, #ffffff, #d1d5db 65%, #4b5563 100%);
+      border: 2px solid #1f2937;
+      box-shadow: 0 3px 5px rgba(0, 0, 0, 0.4);
+    }
+
+    .halli-bell:active,
+    .halli-bell.ringing {
+      transform: scale(0.9) translateY(4px);
+      box-shadow:
+        0 4px 10px rgba(0, 0, 0, 0.7),
+        0 0 25px rgba(250, 204, 21, 0.85),
+        inset 0 2px 6px rgba(255, 255, 255, 0.6);
+    }
+
+    /* 턴 강조 테두리 애니메이션 */
+    @keyframes pulseTurn {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7), 0 0 16px rgba(250, 204, 21, 0.55);
+      }
+      50% {
+        box-shadow: 0 0 0 5px rgba(250, 204, 21, 0), 0 0 24px rgba(250, 204, 21, 0.9);
+      }
+    }
+
+    .turn-highlight {
+      border-color: #facc15 !important;
+      animation: pulseTurn 1.3s infinite;
+    }
+
+    /* 주사위 눈 배치용 3x3 과일 그리드 (카드 밖 이탈 방지) */
+    .fruit-pip-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-rows: repeat(3, minmax(0, 1fr));
+      width: 100%;
+      height: 100%;
+      place-items: center;
+      overflow: hidden;
+      padding: 2px;
+    }
+
+    .fruit-pip-item {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      line-height: 1;
+      user-select: none;
+    }
+
+    /* 원탁 좌석용 소형 과일 크기 */
+    .fruit-pip-seat {
+      font-size: 11px;
+    }
+    @media (min-width: 640px) {
+      .fruit-pip-seat {
+        font-size: 13px;
+      }
+    }
+
+    /* 내 하단 패널용 중형 과일 크기 */
+    .fruit-pip-my {
+      font-size: 16px;
+    }
+    @media (min-width: 640px) {
+      .fruit-pip-my {
+        font-size: 19px;
+      }
+    }
+
+    /* 스크롤바 커스텀 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="flex flex-col justify-between min-h-dvh p-2 sm:p-4">
+
+  <!-- 상단 공통 네비게이션 & 상태 헤더 -->
+  <header class="w-full max-w-6xl mx-auto bg-black/40 backdrop-blur-md border border-white/15 rounded-2xl px-3 py-2.5 sm:px-5 sm:py-3 flex flex-wrap items-center justify-between gap-2 shadow-lg z-20">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-xl bg-amber-400 text-amber-950 flex items-center justify-center font-black text-lg shadow">
+        🔔
+      </div>
+      <div>
+        <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-amber-300 flex items-center gap-2">
+          할리갈리 8인 모바일
+          <span id="connection-badge" class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-semibold">
+            로비 대기
+          </span>
+        </h1>
+        <p class="text-[11px] text-emerald-200/80 hidden sm:block">최대 8명 실시간 멀티플레이 · 제한 시간 4분</p>
+      </div>
+    </div>
+
+    <!-- 게임 진행 중 표시되는 4분 타이머 & 컨트롤 -->
+    <div class="flex items-center gap-2 sm:gap-3">
+      <div id="timer-box" class="hidden items-center gap-2 bg-black/60 border border-amber-400/40 px-3 py-1.5 rounded-xl">
+        <i class="fa-regular fa-clock text-amber-400 text-sm"></i>
+        <span id="timer-text" class="font-mono font-black text-lg sm:text-xl text-amber-300 tracking-wider">04:00</span>
+      </div>
+
+      <button onclick="toggleSound()" id="sound-btn" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs sm:text-sm font-semibold border border-white/15 transition">
+        <i class="fa-solid fa-volume-high mr-1"></i>효과음 ON
+      </button>
+
+      <button onclick="openGithubModal()" class="px-3 py-1.5 rounded-xl bg-emerald-600/40 hover:bg-emerald-600/60 text-xs sm:text-sm font-semibold border border-emerald-400/30 transition">
+        <i class="fa-brands fa-github mr-1"></i>배포/초대 안내
+      </button>
+
+      <button id="leave-room-btn" onclick="leaveRoom()" class="hidden px-3 py-1.5 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-xs sm:text-sm font-bold transition">
+        나가기
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== 1. 로비 화면 (닉네임 & 방 개설/입장) ==================== -->
+  <main id="screen-lobby" class="w-full max-w-4xl mx-auto my-auto py-4 flex flex-col gap-5 z-10">
+    <!-- 닉네임 설정 카드 -->
+    <section class="bg-black/40 backdrop-blur-md border border-white/15 rounded-2xl p-4 sm:p-6 shadow-xl">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-amber-400">STEP 1 · 플레이어 프로필</span>
+          <h2 class="text-lg sm:text-xl font-extrabold text-white mt-0.5">입장할 닉네임을 설정하세요</h2>
+          <p class="text-xs text-emerald-100/75 mt-1">방에 입장하거나 개설할 때 다른 플레이어에게 표시될 이름입니다.</p>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <input
+            id="nickname-input"
+            type="text"
+            maxlength="10"
+            placeholder="닉네임 입력 (최대 10자)"
+            class="w-full sm:w-52 px-4 py-2.5 rounded-xl bg-white/95 text-gray-900 font-bold text-sm focus:outline-none focus:ring-4 focus:ring-amber-400"
+          />
+          <button
+            onclick="assignRandomNickname()"
+            title="랜덤 닉네임 생성"
+            class="px-3.5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-sm border border-white/20 shrink-0 transition"
+          >
+            🎲 랜덤
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 방 개설 & 방 입장 2열 그리드 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+      <!-- 방 개설하기 (Host) -->
+      <section class="bg-gradient-to-br from-emerald-900/70 to-black/50 backdrop-blur-md border border-emerald-400/30 rounded-2xl p-5 sm:p-6 flex flex-col justify-between shadow-xl">
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold px-2.5 py-1 rounded-lg bg-amber-400 text-amber-950">방장 (HOST)</span>
+            <span class="text-xs text-emerald-200 font-semibold">최대 8명 · 4분 타이머</span>
+          </div>
+          <h3 class="text-xl font-black text-white mt-3">새로운 게임 방 개설</h3>
+          <p class="text-xs text-emerald-100/80 mt-1 leading-relaxed">
+            방을 만들고 4자리 방 코드나 초대 링크를 친구들에게 공유하세요. 빈자리는 AI 봇으로 채워 최대 8명까지 플레이할 수 있습니다.
+          </p>
+
+          <div class="mt-4 space-y-3 bg-black/30 p-3.5 rounded-xl border border-white/10">
+            <div class="flex items-center justify-between text-xs sm:text-sm">
+              <span class="text-emerald-200 font-semibold">최대 참가 인원</span>
+              <select id="host-max-players" class="bg-white text-gray-900 font-bold px-3 py-1.5 rounded-lg text-xs sm:text-sm">
+                <option value="2">2명</option>
+                <option value="3">3명</option>
+                <option value="4">4명</option>
+                <option value="5">5명</option>
+                <option value="6">6명</option>
+                <option value="7">7명</option>
+                <option value="8" selected>8명 (최대)</option>
+              </select>
+            </div>
+
+            <div class="flex items-center justify-between text-xs sm:text-sm">
+              <span class="text-emerald-200 font-semibold">제한 시간</span>
+              <span class="px-3 py-1 rounded-lg bg-amber-400/20 text-amber-300 border border-amber-400/40 font-extrabold text-xs sm:text-sm">
+                ⏱️ 4분 (240초) 고정
+              </span>
+            </div>
+
+            <div class="flex items-center justify-between text-xs sm:text-sm">
+              <span class="text-emerald-200 font-semibold">AI 봇 반응속도</span>
+              <select id="host-ai-speed" class="bg-white text-gray-900 font-bold px-3 py-1.5 rounded-lg text-xs sm:text-sm">
+                <option value="easy">느림 (초보용)</option>
+                <option value="normal" selected>보통 (표준)</option>
+                <option value="hard">빠름 (고수용)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-5 flex flex-col gap-2">
+          <button
+            onclick="createRoom(false)"
+            class="w-full py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 active:scale-[0.99] text-amber-950 font-black text-base shadow-lg transition flex items-center justify-center gap-2"
+          >
+            <i class="fa-solid fa-plus-circle"></i> 멀티플레이 게임 방 만들기
+          </button>
+          <button
+            onclick="createRoom(true)"
+            class="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-amber-200 font-bold text-xs sm:text-sm border border-white/15 transition"
+          >
+            ⚡ AI 7명과 즉시 8인 게임 시작하기
+          </button>
+        </div>
+      </section>
+
+      <!-- 방 입장하기 (Guest) -->
+      <section class="bg-gradient-to-br from-slate-900/70 to-black/50 backdrop-blur-md border border-white/20 rounded-2xl p-5 sm:p-6 flex flex-col justify-between shadow-xl">
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-extrabold px-2.5 py-1 rounded-lg bg-sky-400 text-sky-950">참가자 (GUEST)</span>
+            <span class="text-xs text-sky-200 font-semibold">모바일 웹 즉시 접속</span>
+          </div>
+          <h3 class="text-xl font-black text-white mt-3">방 코드로 입장하기</h3>
+          <p class="text-xs text-slate-200/80 mt-1 leading-relaxed">
+            친구가 개설한 방의 4자리 숫자 코드를 입력하거나 공유받은 링크로 접속해 최대 8인 할리갈리에 참여하세요.
+          </p>
+
+          <div class="mt-5 bg-black/35 p-4 rounded-xl border border-white/10">
+            <label class="block text-xs font-bold text-sky-300 mb-2">방 코드 4자리 입력</label>
+            <input
+              id="join-code-input"
+              type="text"
+              inputmode="numeric"
+              maxlength="4"
+              placeholder="예: 4829"
+              class="w-full px-4 py-3 rounded-xl bg-white text-gray-900 font-mono font-black text-2xl tracking-[0.35em] text-center focus:outline-none focus:ring-4 focus:ring-sky-400"
+            />
+            <p id="join-status-msg" class="text-xs text-amber-300 mt-2 min-h-[18px] text-center font-semibold"></p>
+          </div>
+        </div>
+
+        <button
+          onclick="joinRoom()"
+          id="join-room-btn"
+          class="mt-5 w-full py-3.5 rounded-xl bg-sky-400 hover:bg-sky-300 active:scale-[0.99] text-sky-950 font-black text-base shadow-lg transition flex items-center justify-center gap-2"
+        >
+          <i class="fa-solid fa-right-to-bracket"></i> 방 입장하기
+        </button>
+      </section>
+    </div>
+  </main>
+
+  <!-- ==================== 2. 대기실 화면 (최대 8명 슬롯 & 초대) ==================== -->
+  <main id="screen-waiting" class="hidden w-full max-w-5xl mx-auto my-auto py-4 flex-col gap-4 z-10">
+    <section class="bg-black/45 backdrop-blur-md border border-white/15 rounded-2xl p-4 sm:p-6 shadow-xl">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/10 pb-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-md bg-amber-400 text-amber-950 font-black text-xs">WAITING ROOM</span>
+            <span class="text-xs text-emerald-300 font-semibold">제한 시간 4분 · 5인 이상 시 112장 더블 덱 자동 적용</span>
+          </div>
+          <h2 class="text-xl sm:text-2xl font-black text-white mt-1 flex items-center gap-3">
+            방 코드: <span id="waiting-room-code" class="font-mono text-amber-300 tracking-widest bg-black/50 px-3 py-1 rounded-xl border border-amber-400/40">----</span>
+          </h2>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <button
+            onclick="copyInviteLink()"
+            class="flex-1 md:flex-none px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs sm:text-sm border border-white/20 transition flex items-center justify-center gap-1.5"
+          >
+            <i class="fa-solid fa-link text-amber-300"></i> 초대 링크 복사
+          </button>
+          <button
+            id="btn-add-bot"
+            onclick="addAIBot()"
+            class="flex-1 md:flex-none px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1.5"
+          >
+            <i class="fa-solid fa-robot"></i> + AI 봇 추가
+          </button>
+          <button
+            id="btn-remove-bot"
+            onclick="removeAIBot()"
+            class="flex-1 md:flex-none px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-rose-200 font-bold text-xs sm:text-sm transition"
+          >
+            봇 제거
+          </button>
+        </div>
+      </div>
+
+      <!-- 참가자 8인 슬롯 그리드 -->
+      <div class="mt-4">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs sm:text-sm font-bold text-emerald-200">
+            참가 플레이어 (<span id="waiting-player-count">1</span> / <span id="waiting-max-players">8</span>명)
+          </span>
+          <span id="waiting-host-notice" class="text-xs text-amber-300 font-semibold">방장이 게임을 시작할 수 있습니다</span>
+        </div>
+
+        <div id="waiting-slots-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <!-- JS로 8개 슬롯 렌더링 -->
+        </div>
+      </div>
+
+      <!-- 시작 버튼 영역 -->
+      <div class="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-white/10">
+        <p class="text-xs text-emerald-100/80">
+          💡 모바일에서는 화면 하단의 <b>내 카드 더미</b>를 터치해 뒤집고, 과일 합이 정확히 <b>5개</b>일 때 <b>중앙의 종</b>을 터치하세요!
+        </p>
+        <button
+          id="btn-start-game"
+          onclick="hostStartGame()"
+          class="w-full sm:w-64 py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-black text-base shadow-xl transition"
+        >
+          🔔 게임 시작 (4분 제한)
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== 3. 본 게임 화면 (8인 테이블 + 중앙 종 + 내 겹친 카드 더미) ==================== -->
+  <main id="screen-game" class="hidden w-full max-w-6xl mx-auto flex-1 flex-col justify-between gap-2 py-1 z-10">
+    <!-- 4분 전체 타이머 & 10초 턴 타이머 & 실시간 판정 배너 -->
+    <div class="w-full flex flex-col gap-1.5">
+      <div class="w-full h-2 bg-black/50 rounded-full overflow-hidden border border-white/10">
+        <div id="timer-progress-bar" class="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-500 transition-all duration-500" style="width: 100%;"></div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-1.5">
+        <div id="game-status-banner" class="w-full sm:flex-1 py-1.5 px-3 rounded-xl bg-black/55 border border-white/15 text-center font-bold text-xs sm:text-sm text-amber-200 shadow-md truncate">
+          게임이 시작되었습니다! 차례대로 카드를 뒤집으세요!
+        </div>
+
+        <!-- 10초 카드 뒤집기 제한시간 표시 바 -->
+        <div class="w-full sm:w-60 bg-black/60 border border-amber-400/40 rounded-xl px-3 py-1.5 flex items-center justify-between gap-2 shrink-0">
+          <span class="text-[11px] font-bold text-amber-300 flex items-center gap-1">
+            <i class="fa-solid fa-hourglass-half"></i> 턴 제한시간
+          </span>
+          <div class="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+            <div id="turn-timer-bar" class="h-full bg-amber-400 transition-all duration-300" style="width: 100%;"></div>
+          </div>
+          <span id="turn-timer-text" class="font-mono font-black text-xs sm:text-sm text-white min-w-[32px] text-right">10초</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 원탁(Round Table) 영역: 플레이어들이 원탁 둘레에 앉고 정중앙에 벨 위치 -->
+    <section class="w-full flex items-center justify-center my-0.5">
+      <div id="round-table-arena" class="round-table-wrapper">
+        <!-- 원탁 테이블 표면 & 정중앙 종 -->
+        <div class="round-table-surface">
+          <!-- 상단 요약 배지 (바닥 카드 & 생존 인원) -->
+          <div class="flex items-center gap-3 mb-2 bg-black/45 px-3 py-1 rounded-full border border-white/15 text-[11px] font-bold">
+            <span class="text-emerald-200">바닥 카드 <b id="table-open-total" class="text-amber-300">0장</b></span>
+            <span class="text-white/30">|</span>
+            <span class="text-emerald-200">생존 <b id="table-survivors-count" class="text-white">0명</b></span>
+          </div>
+
+          <!-- 원탁 한가운데 위치한 할리갈리 벨 -->
+          <button
+            id="center-bell-btn"
+            onclick="handleBellPress()"
+            class="halli-bell flex flex-col items-center justify-center select-none z-20"
+            aria-label="할리갈리 종 치기"
+          >
+            <span class="mt-4 font-black text-base sm:text-lg text-amber-950 tracking-tight drop-shadow">BELL</span>
+            <span class="text-[9px] sm:text-[10px] font-extrabold text-amber-900">터치 / SPACE</span>
+          </button>
+
+          <!-- 현재 턴 플레이어 및 10초 카운트 안내 -->
+          <div id="table-center-turn-info" class="mt-2 px-2.5 py-0.5 rounded-full bg-black/50 border border-amber-400/30 text-[10px] sm:text-xs font-extrabold text-amber-200">
+            차례 대기 중
+          </div>
+        </div>
+
+        <!-- 원탁 둘레 플레이어 좌석 컨테이너 (JS로 원형 배치 렌더링) -->
+        <div id="round-table-seats" class=" inset-0 absolute pointer-events-none">
+          <!-- JS로 각 플레이어가 원탁을 둘러싸도록 렌더링됨 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 하단: 내 플레이어 전용 조작 영역 (내 겹쳐 쌓인 카드 더미 시각화 포함) -->
+    <section id="my-player-panel" class="w-full max-w-2xl mx-auto bg-black/55 backdrop-blur-md border-2 border-white/20 rounded-2xl p-2.5 sm:p-3.5 shadow-2xl transition-all">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded-md bg-emerald-500 text-emerald-950 font-black text-xs">ME (6시 좌석)</span>
+          <h3 id="my-panel-name" class="font-extrabold text-sm sm:text-base text-white">내 닉네임</h3>
+          <span id="my-turn-badge" class="hidden px-2.5 py-0.5 rounded-full bg-amber-400 text-amber-950 font-black text-xs animate-bounce">
+            내 차례! (10초 안에 뒤집기)
+          </span>
+        </div>
+        <div class="text-xs sm:text-sm font-bold text-amber-300">
+          총 보유: <span id="my-total-cards-text" class="text-sm sm:text-base font-black">0</span>장
+          <span class="text-white/60 text-xs ml-1">(바닥 <span id="my-open-cards-text">0</span>장)</span>
+        </div>
+      </div>
+
+      <!-- 핵심 3열 영역: [1. 겹쳐 쌓인 내 카드 두께 시각화] + [2. 내 카드 뒤집기 버튼] + [3. 내가 펼친 과일 카드] -->
+      <div class="grid grid-cols-3 gap-2 sm:gap-4 items-center bg-white/5 rounded-xl p-2 sm:p-2.5 border border-white/10">
+        <!-- 1) 내 카드 더미 옆에 겹치게 쌓아둔 카드 시각화 -->
+        <div class="flex flex-col items-center justify-center">
+          <div class="flex items-center gap-2">
+            <div id="my-visual-stack" class="visual-stack-container">
+              <!-- 카드 수만큼 겹쳐진 레이어가 JS로 렌더링됨 -->
+            </div>
+            <!-- 직관적 카드 수 게이지 바 -->
+            <div class="h-20 w-2.5 bg-black/50 rounded-full overflow-hidden border border-white/20 flex flex-col justify-end p-0.5">
+              <div id="my-stack-gauge" class="w-full bg-gradient-to-t from-amber-500 to-yellow-300 rounded-full transition-all duration-300" style="height: 50%;"></div>
+            </div>
+          </div>
+          <span class="mt-1 text-[11px] font-bold text-amber-200">
+            쌓인 내 카드 (<span id="my-stack-label-count">0</span>장)
+          </span>
+        </div>
+
+        <!-- 2) 내 카드 더미 (클릭/터치하여 뒤집기) -->
+        <div class="flex flex-col items-center justify-center">
+          <button
+            id="my-deck-flip-btn"
+            onclick="handleFlipPress()"
+            class="w-20 h-28 sm:w-24 sm:h-32 rounded-xl card-back-pattern flex flex-col items-center justify-center relative active:scale-95 transition group overflow-hidden"
+          >
+            <span id="my-deck-count-badge" class="px-2.5 py-0.5 rounded-full bg-black/80 text-white font-black text-xs sm:text-sm shadow">
+              0장
+            </span>
+            <span class="mt-1.5 text-[10px] font-extrabold text-amber-200 bg-black/65 px-1.5 py-0.5 rounded">
+              터치하여 뒤집기
+            </span>
+          </button>
+          <span class="mt-1 text-[11px] font-bold text-emerald-200">내 카드 더미 (Q키)</span>
+        </div>
+
+        <!-- 3) 내가 펼친 오픈 카드 (과일이 카드 밖으로 나가지 않도록 고정 크기 및 overflow-hidden 적용) -->
+        <div class="flex flex-col items-center justify-center">
+          <div
+            id="my-open-card-slot"
+            class="w-20 h-28 sm:w-24 sm:h-32 rounded-xl bg-amber-50 border-2 border-gray-200 shadow-lg flex items-center justify-center p-1.5 text-gray-900 overflow-hidden"
+          >
+            <span class="text-xs text-gray-400 font-bold">비어 있음</span>
+          </div>
+          <span class="mt-1 text-[11px] font-bold text-emerald-200">내가 펼친 카드</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== 4. 결과 모달 (4분 종료 또는 최후 1인 승리) ==================== -->
+  <div id="modal-result" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-amber-400/50 rounded-2xl max-w-md w-full p-6 shadow-2xl text-center">
+      <div class="w-16 h-16 rounded-2xl bg-amber-400 text-amber-950 flex items-center justify-center text-3xl mx-auto font-black shadow-lg">
+        🏆
+      </div>
+      <h2 id="result-title" class="text-2xl font-black text-amber-300 mt-3">게임 종료!</h2>
+      <p id="result-subtitle" class="text-xs sm:text-sm text-slate-300 mt-1">4분 제한 시간이 종료되어 보유 카드 순위를 발표합니다.</p>
+
+      <div id="result-ranking-list" class="mt-4 space-y-2 text-left max-h-64 overflow-y-auto pr-1">
+        <!-- 순위 리스트 렌더링 -->
+      </div>
+
+      <div class="mt-6 flex gap-2">
+        <button
+          onclick="closeResultAndReturnWaiting()"
+          class="flex-1 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-amber-950 font-black text-sm transition"
+        >
+          대기실로 돌아가기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 5. GitHub Pages 모바일 배포 & 초대 안내 모달 ==================== -->
+  <div id="modal-github" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-white/20 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-lg font-black text-amber-300 flex items-center gap-2">
+          <i class="fa-brands fa-github text-xl"></i> GitHub Pages 모바일 웹 배포 방법
+        </h3>
+        <button onclick="closeGithubModal()" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+      </div>
+
+      <div class="mt-4 space-y-3 text-xs sm:text-sm text-slate-200 leading-relaxed">
+        <p>
+          이 파일(<code class="text-amber-300 font-mono">index.html</code>)은 별도의 백엔드 서버 설치 없이 <b>GitHub Pages</b>에 업로드하는 것만으로 스마트폰 브라우저에서 최대 8명이 방 코드로 함께 접속할 수 있도록 설계되었습니다.
+        </p>
+        <ol class="list-decimal list-inside space-y-2 bg-black/40 p-3.5 rounded-xl border border-white/10">
+          <li>GitHub에서 새 저장소(Repository)를 생성합니다.</li>
+          <li>이 코드를 <code class="text-amber-300 font-mono font-bold">index.html</code> 파일로 저장해 업로드(Commit)합니다.</li>
+          <li>저장소의 <b>Settings → Pages</b> 메뉴에서 Branch를 <code class="text-emerald-300 font-mono">main</code>으로 선택하고 Save를 누릅니다.</li>
+          <li>생성된 <code class="text-sky-300 font-mono">https://아이디.github.io/저장소명/</code> 주소를 카카오톡 등으로 친구들에게 공유하면 모바일에서 즉시 방 개설 및 입장이 가능합니다!</li>
+        </ol>
+        <p class="text-xs text-emerald-300">
+          ✨ <b>네트워크 기술:</b> WebRTC(PeerJS 공개 브로커) 및 로컬 탭 동기화가 내장되어 있어, 정적 GitHub Pages 환경에서도 실시간으로 8인 방 코드 매칭이 작동합니다.
+        </p>
+      </div>
+
+      <div class="mt-5 flex justify-end">
+        <button onclick="closeGithubModal()" class="px-5 py-2.5 rounded-xl bg-amber-400 text-amber-950 font-black text-sm">
+          확인
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 토스트 알림 -->
+  <div id="toast-box" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-black/85 text-amber-300 border border-amber-400/40 px-4 py-2.5 rounded-full text-xs sm:text-sm font-bold shadow-2xl opacity-0 pointer-events-none transition-opacity duration-300 z-50">
+    알림 메시지
+  </div>
+
+  <script>
+    /*************************************************************************
+     * 1. 상수 및 게임 데이터 정의
+     *************************************************************************/
+    const GAME_DURATION_SECONDS = 240; // 4분 (240초) 제한 시간
+    const TURN_DURATION_SECONDS = 10;  // 각 플레이어 카드 뒤집기 제한 시간 10초
+    const PEER_PREFIX = 'hg8-kr-room-';
+
+    const FRUITS = [
+      { id: 'strawberry', name: '딸기', emoji: '🍓' },
+      { id: 'banana',     name: '바나나', emoji: '🍌' },
+      { id: 'lime',       name: '라임', emoji: '🍈' },
+      { id: 'plum',       name: '자두', emoji: '🍇' }
+    ];
+
+    // 할리갈리 표준 56장 비율 (5인~8인일 때는 자동으로 2덱=112장 생성)
+    const CARD_DISTRIBUTION = [
+      { count: 1, copies: 5 },
+      { count: 2, copies: 3 },
+      { count: 3, copies: 3 },
+      { count: 4, copies: 2 },
+      { count: 5, copies: 1 }
+    ];
+
+    // 3x3 그리드 내 과일 위치 (주사위 눈 배치)
+    const PIP_POSITIONS = {
+      1: [4],
+      2: [0, 8],
+      3: [0, 4, 8],
+      4: [0, 2, 6, 8],
+      5: [0, 2, 4, 6, 8]
+    };
+
+    const RANDOM_NICKNAMES = [
+      '빠른딸기', '황금종손', '바나나킹', '빛의순발력',
+      '라임마스터', '자두사냥꾼', '할리갈리신', '종치기달인',
+      '과일수집가', '오작동제로', '번개손가락', '상큼한라임'
+    ];
+
+    const AI_NAMES = [
+      'AI 딸기봇', 'AI 바나나봇', 'AI 라임봇', 'AI 자두봇',
+      'AI 번개봇', 'AI 알파봇', 'AI 마스터봇'
+    ];
+
+    /*************************************************************************
+     * 2. 전역 상태 변수
+     *************************************************************************/
+    let myClientId = 'p_' + Math.random().toString(36).substring(2, 10);
+    let myNickname = '';
+    let isHost = false;
+    let roomCode = '';
+    let maxPlayers = 8;
+    let aiSpeed = 'normal';
+
+    // PeerJS 및 탭 간 BroadcastChannel 통신
+    let peer = null;
+    let hostConnections = {}; // Host가 관리하는 Guest 커넥션 목록
+    let guestConn = null;     // Guest가 Host에 연결한 커넥션
+    let localChannel = null;  // 동일 기기 브라우저 탭 간 즉시 연동용
+
+    // 동기화되는 방/게임 상태 (Host가 권위를 가짐)
+    let roomState = {
+      roomCode: '',
+      maxPlayers: 8,
+      status: 'waiting', // 'waiting' | 'playing' | 'ended'
+      timeRemaining: GAME_DURATION_SECONDS,
+      turnTimeRemaining: TURN_DURATION_SECONDS,
+      currentTurnIndex: 0,
+      bannerMessage: '게임을 시작할 준비가 되었습니다!',
+      lastSound: null,
+      players: [] // { id, name, isAI, isHost, closedCount, openPile: [], eliminated: false }
+    };
+
+    // Host 전용 전체 카드 덱 저장소 (네트워크 패킷 최소화를 위해 뒷면 카드 배열은 Host가 보유)
+    let hostClosedDecks = {}; // { playerId: [card, card, ...] }
+
+    // 타이머 핸들러
+    let countdownInterval = null;
+    let aiTurnTimer = null;
+    let aiBellTimer = null;
+
+    // 오디오 설정
+    let soundEnabled = true;
+    let audioCtx = null;
+
+    /*************************************************************************
+     * 3. 효과음 합성 (Web Audio API)
+     *************************************************************************/
+    function playSoundEffect(type) {
+      if (!soundEnabled) return;
+      try {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const now = audioCtx.currentTime;
+
+        if (type === 'bell') {
+          // 맑고 경쾌한 할리갈리 종소리
+          const osc1 = audioCtx.createOscillator();
+          const osc2 = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc1.type = 'sine';
+          osc2.type = 'triangle';
+          osc1.frequency.setValueAtTime(1760, now);
+          osc2.frequency.setValueAtTime(3520, now);
+          gain.gain.setValueAtTime(0.45, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 0.85);
+          osc2.stop(now + 0.85);
+        } else if (type === 'flip') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(340, now);
+          osc.frequency.exponentialRampToValueAtTime(130, now + 0.06);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.06);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.06);
+        } else if (type === 'penalty') {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(155, now);
+          osc.frequency.setValueAtTime(115, now + 0.14);
+          gain.gain.setValueAtTime(0.22, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.32);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.32);
+        }
+      } catch (e) {
+        // 오디오 컨텍스트 제한 무시
+      }
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      const btn = document.getElementById('sound-btn');
+      btn.innerHTML = soundEnabled
+        ? '<i class="fa-solid fa-volume-high mr-1"></i>효과음 ON'
+        : '<i class="fa-solid fa-volume-xmark mr-1"></i>효과음 OFF';
+    }
+
+    /*************************************************************************
+     * 4. 초기화 및 닉네임/URL 파라미터 처리
+     *************************************************************************/
+    window.addEventListener('DOMContentLoaded', () => {
+      assignRandomNickname();
+
+      // URL에 ?room=XXXX 파라미터가 있으면 자동으로 방 코드 입력란에 세팅
+      const params = new URLSearchParams(window.location.search);
+      const roomParam = params.get('room');
+      if (roomParam && /^\d{4}$/.test(roomParam)) {
+        document.getElementById('join-code-input').value = roomParam;
+        showToast(`초대 코드 [${roomParam}]가 입력되었습니다. 닉네임 확인 후 입장하세요!`);
+      }
+
+      // 키보드 단축키 지원 (Q: 카드 뒤집기, Space: 종 치기)
+      window.addEventListener('keydown', (e) => {
+        if (roomState.status !== 'playing') return;
+        if (e.code === 'Space') {
+          e.preventDefault();
+          handleBellPress();
+        } else if (e.code === 'KeyQ') {
+          e.preventDefault();
+          handleFlipPress();
+        }
+      });
+    });
+
+    function assignRandomNickname() {
+      const pick = RANDOM_NICKNAMES[Math.floor(Math.random() * RANDOM_NICKNAMES.length)];
+      const num = Math.floor(10 + Math.random() * 89);
+      document.getElementById('nickname-input').value = `${pick}${num}`;
+    }
+
+    function getValidatedNickname() {
+      const input = document.getElementById('nickname-input').value.trim();
+      if (!input) {
+        assignRandomNickname();
+      }
+      myNickname = document.getElementById('nickname-input').value.trim().slice(0, 10);
+      return myNickname;
+    }
+
+    function showToast(msg) {
+      const box = document.getElementById('toast-box');
+      box.textContent = msg;
+      box.classList.remove('opacity-0');
+      box.classList.add('opacity-100');
+      setTimeout(() => {
+        box.classList.remove('opacity-100');
+        box.classList.add('opacity-0');
+      }, 2600);
+    }
+
+    /*************************************************************************
+     * 5. 방 개설 (Host) 및 방 입장 (Guest) 네트워크 로직
+     *************************************************************************/
+    function setupBroadcastChannel(code) {
+      if (localChannel) {
+        localChannel.close();
+      }
+      if ('BroadcastChannel' in window) {
+        localChannel = new BroadcastChannel(`halligalli_room_${code}`);
+        localChannel.onmessage = (event) => {
+          handleNetworkMessage(event.data, null);
+        };
+      }
+    }
+
+    function createRoom(instantStartWithAI = false) {
+      getValidatedNickname();
+      isHost = true;
+      maxPlayers = parseInt(document.getElementById('host-max-players').value, 10) || 8;
+      aiSpeed = document.getElementById('host-ai-speed').value || 'normal';
+      roomCode = String(Math.floor(1000 + Math.random() * 9000));
+
+      roomState = {
+        roomCode: roomCode,
+        maxPlayers: maxPlayers,
+        status: 'waiting',
+        timeRemaining: GAME_DURATION_SECONDS,
+        turnTimeRemaining: TURN_DURATION_SECONDS,
+        currentTurnIndex: 0,
+        bannerMessage: '대기실에서 참가자를 기다리는 중입니다.',
+        lastSound: null,
+        players: [
+          {
+            id: myClientId,
+            name: myNickname,
+            isAI: false,
+            isHost: true,
+            closedCount: 0,
+            openPile: [],
+            eliminated: false
+          }
+        ]
+      };
+
+      setupBroadcastChannel(roomCode);
+      initHostPeer(roomCode);
+
+      if (instantStartWithAI) {
+        while (roomState.players.length < maxPlayers) {
+          addAIBot(true);
+        }
+        switchScreen('waiting');
+        renderWaitingRoom();
+        hostStartGame();
+      } else {
+        switchScreen('waiting');
+        renderWaitingRoom();
+        showToast(`방 [${roomCode}]이 개설되었습니다!`);
+      }
+    }
+
+    function initHostPeer(code) {
+      if (peer) peer.destroy();
+      updateConnectionBadge('멀티 서버 연결중...', 'amber');
+
+      try {
+        peer = new Peer(PEER_PREFIX + code);
+        peer.on('open', () => {
+          updateConnectionBadge(`방 코드 ${code} 활성`, 'emerald');
+        });
+        peer.on('connection', (conn) => {
+          conn.on('data', (data) => {
+            handleNetworkMessage(data, conn);
+          });
+          conn.on('close', () => {
+            delete hostConnections[conn.peer];
+          });
+        });
+        peer.on('error', () => {
+          updateConnectionBadge(`로컬/오프라인 호스트 (${code})`, 'amber');
+        });
+      } catch (e) {
+        updateConnectionBadge(`로컬 모드 (${code})`, 'amber');
+      }
+    }
+
+    function joinRoom() {
+      getValidatedNickname();
+      const codeInput = document.getElementById('join-code-input').value.trim();
+      if (!/^\d{4}$/.test(codeInput)) {
+        document.getElementById('join-status-msg').textContent = '4자리 숫자 방 코드를 정확히 입력해주세요.';
+        return;
+      }
+
+      isHost = false;
+      roomCode = codeInput;
+      document.getElementById('join-status-msg').textContent = `방 [${roomCode}]에 연결하는 중...`;
+      updateConnectionBadge(`방 ${roomCode} 접속중...`, 'amber');
+
+      setupBroadcastChannel(roomCode);
+
+      // 동일 브라우저 탭 간 BroadcastChannel로 먼저 참가 요청 전송
+      if (localChannel) {
+        localChannel.postMessage({
+          type: 'JOIN_REQUEST',
+          player: { id: myClientId, name: myNickname }
+        });
+      }
+
+      // PeerJS를 통해 원격 모바일/PC 방장에게 접속
+      if (peer) peer.destroy();
+      try {
+        peer = new Peer();
+        peer.on('open', () => {
+          guestConn = peer.connect(PEER_PREFIX + roomCode, { reliable: true });
+          guestConn.on('open', () => {
+            updateConnectionBadge(`방 ${roomCode} 연결됨`, 'emerald');
+            guestConn.send({
+              type: 'JOIN_REQUEST',
+              player: { id: myClientId, name: myNickname }
+            });
+          });
+          guestConn.on('data', (data) => {
+            handleNetworkMessage(data, guestConn);
+          });
+          guestConn.on('error', () => {
+            document.getElementById('join-status-msg').textContent = '방 연결에 실패했습니다. 코드를 확인해주세요.';
+          });
+        });
+        peer.on('error', () => {
+          if (roomState.roomCode !== roomCode) {
+            document.getElementById('join-status-msg').textContent = '해당 방 코드를 찾을 수 없습니다.';
+          }
+        });
+      } catch (e) {
+        document.getElementById('join-status-msg').textContent = '네트워크 초기화 오류가 발생했습니다.';
+      }
+    }
+
+    function handleNetworkMessage(msg, conn) {
+      if (!msg || !msg.type) return;
+
+      if (isHost) {
+        if (msg.type === 'JOIN_REQUEST') {
+          if (conn) {
+            hostConnections[msg.player.id] = conn;
+          }
+          const exists = roomState.players.find(p => p.id === msg.player.id);
+          if (!exists) {
+            if (roomState.players.length >= roomState.maxPlayers) {
+              // 만약 AI 봇이 있으면 AI 봇 1명을 빼고 실제 유저를 넣어줌
+              const botIdx = roomState.players.findIndex(p => p.isAI);
+              if (botIdx !== -1 && roomState.status === 'waiting') {
+                roomState.players.splice(botIdx, 1);
+              } else {
+                sendToGuest(conn, { type: 'JOIN_REJECTED', reason: '방 인원이 가득 찼습니다 (최대 8명).' });
+                return;
+              }
+            }
+            roomState.players.push({
+              id: msg.player.id,
+              name: msg.player.name,
+              isAI: false,
+              isHost: false,
+              closedCount: 0,
+              openPile: [],
+              eliminated: false
+            });
+            showToast(`${msg.player.name}님이 입장했습니다!`);
+          }
+          broadcastState();
+        } else if (msg.type === 'ACTION_FLIP') {
+          hostProcessFlip(msg.playerId);
+        } else if (msg.type === 'ACTION_BELL') {
+          hostProcessBell(msg.playerId);
+        }
+      } else {
+        // Guest 입장
+        if (msg.type === 'STATE_SYNC') {
+          roomState = msg.state;
+          document.getElementById('join-status-msg').textContent = '';
+          updateConnectionBadge(`방 ${roomState.roomCode} 참가중`, 'emerald');
+
+          if (roomState.lastSound) {
+            playSoundEffect(roomState.lastSound);
+          }
+
+          if (roomState.status === 'waiting') {
+            switchScreen('waiting');
+            renderWaitingRoom();
+          } else if (roomState.status === 'playing') {
+            switchScreen('game');
+            renderGameScreen();
+          } else if (roomState.status === 'ended') {
+            switchScreen('game');
+            renderGameScreen();
+            showResultModal();
+          }
+        } else if (msg.type === 'JOIN_REJECTED') {
+          document.getElementById('join-status-msg').textContent = msg.reason || '입장이 거부되었습니다.';
+        }
+      }
+    }
+
+    function sendToGuest(conn, payload) {
+      if (conn && conn.open) {
+        conn.send(payload);
+      }
+      if (localChannel) {
+        localChannel.postMessage(payload);
+      }
+    }
+
+    function broadcastState(soundType = null) {
+      if (!isHost) return;
+      roomState.lastSound = soundType;
+
+      if (soundType) {
+        playSoundEffect(soundType);
+      }
+
+      const payload = {
+        type: 'STATE_SYNC',
+        state: roomState
+      };
+
+      Object.values(hostConnections).forEach(conn => {
+        if (conn && conn.open) {
+          conn.send(payload);
+        }
+      });
+
+      if (localChannel) {
+        localChannel.postMessage(payload);
+      }
+
+      // Host 자신의 UI 갱신
+      if (roomState.status === 'waiting') {
+        renderWaitingRoom();
+      } else if (roomState.status === 'playing') {
+        renderGameScreen();
+      } else if (roomState.status === 'ended') {
+        renderGameScreen();
+        showResultModal();
+      }
+    }
+
+    /*************************************************************************
+     * 6. 대기실 관리 (AI 봇 추가/제거, 초대 링크 복사)
+     *************************************************************************/
+    function addAIBot(silent = false) {
+      if (!isHost || roomState.status !== 'waiting') return;
+      if (roomState.players.length >= roomState.maxPlayers) {
+        if (!silent) showToast(`최대 ${roomState.maxPlayers}명까지만 참가할 수 있습니다.`);
+        return;
+      }
+      const botIndex = roomState.players.filter(p => p.isAI).length;
+      const botName = AI_NAMES[botIndex % AI_NAMES.length] + ` #${botIndex + 1}`;
+      roomState.players.push({
+        id: 'bot_' + Math.random().toString(36).substring(2, 8),
+        name: botName,
+        isAI: true,
+        isHost: false,
+        closedCount: 0,
+        openPile: [],
+        eliminated: false
+      });
+      if (!silent) broadcastState();
+    }
+
+    function removeAIBot() {
+      if (!isHost || roomState.status !== 'waiting') return;
+      for (let i = roomState.players.length - 1; i >= 0; i--) {
+        if (roomState.players[i].isAI) {
+          roomState.players.splice(i, 1);
+          broadcastState();
+          return;
+        }
+      }
+      showToast('제거할 AI 봇이 없습니다.');
+    }
+
+    function renderWaitingRoom() {
+      document.getElementById('waiting-room-code').textContent = roomState.roomCode;
+      document.getElementById('waiting-player-count').textContent = roomState.players.length;
+      document.getElementById('waiting-max-players').textContent = roomState.maxPlayers;
+
+      const addBotBtn = document.getElementById('btn-add-bot');
+      const removeBotBtn = document.getElementById('btn-remove-bot');
+      const startBtn = document.getElementById('btn-start-game');
+      const hostNotice = document.getElementById('waiting-host-notice');
+
+      if (isHost) {
+        addBotBtn.classList.remove('hidden');
+        removeBotBtn.classList.remove('hidden');
+        startBtn.classList.remove('hidden');
+        hostNotice.textContent = '빈자리에 AI 봇을 추가하거나 바로 시작할 수 있습니다.';
+      } else {
+        addBotBtn.classList.add('hidden');
+        removeBotBtn.classList.add('hidden');
+        startBtn.classList.add('hidden');
+        hostNotice.textContent = '방장이 게임을 시작하기를 기다리는 중입니다...';
+      }
+
+      const grid = document.getElementById('waiting-slots-grid');
+      let html = '';
+
+      for (let i = 0; i < roomState.maxPlayers; i++) {
+        const p = roomState.players[i];
+        if (p) {
+          const isMe = p.id === myClientId;
+          html += `
+            <div class="p-3.5 rounded-xl border ${isMe ? 'bg-amber-400/15 border-amber-400' : 'bg-white/10 border-white/15'} flex flex-col justify-between gap-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-extrabold px-2 py-0.5 rounded ${p.isAI ? 'bg-emerald-500/30 text-emerald-200' : 'bg-sky-500/30 text-sky-200'}">
+                  ${p.isHost ? '👑 방장' : (p.isAI ? '🤖 AI 봇' : '👤 참가자')}
+                </span>
+                ${isMe ? '<span class="text-[11px] font-black text-amber-300">나 (ME)</span>' : ''}
+              </div>
+              <div class="font-extrabold text-sm sm:text-base text-white truncate mt-1">
+                ${escapeHtml(p.name)}
+              </div>
+            </div>
+          `;
+        } else {
+          html += `
+            <div class="p-3.5 rounded-xl border border-dashed border-white/20 bg-black/20 flex flex-col items-center justify-center text-white/40 min-h-[78px]">
+              <i class="fa-solid fa-user-plus text-sm mb-1"></i>
+              <span class="text-xs font-semibold">빈 슬롯 (${i + 1})</span>
+            </div>
+          `;
+        }
+      }
+      grid.innerHTML = html;
+    }
+
+    function copyInviteLink() {
+      const baseUrl = window.location.origin + window.location.pathname;
+      const inviteUrl = `${baseUrl}?room=${roomState.roomCode}`;
+      const tempInput = document.createElement('textarea');
+      tempInput.value = `[할리갈리 8인 초대] 방 코드: ${roomState.roomCode}\n접속 링크: ${inviteUrl}`;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+      showToast(`초대 링크와 방 코드(${roomState.roomCode})가 복사되었습니다!`);
+    }
+
+    /*************************************************************************
+     * 7. 게임 진행 로직 (Host 권위: 5~8인 더블 덱 분배, 4분 타이머, 종 판정)
+     *************************************************************************/
+    function buildDeck(playerCount) {
+      // 5명 이상일 때는 카드가 금방 소진되지 않도록 2덱(112장)을 사용
+      const deckMultiplier = playerCount >= 5 ? 2 : 1;
+      const deck = [];
+
+      for (let d = 0; d < deckMultiplier; d++) {
+        FRUITS.forEach(fruit => {
+          CARD_DISTRIBUTION.forEach(item => {
+            for (let c = 0; c < item.copies; c++) {
+              deck.push({
+                fruit: fruit.id,
+                fruitName: fruit.name,
+                emoji: fruit.emoji,
+                count: item.count
+              });
+            }
+          });
+        });
+      }
+
+      // 셔플
+      for (let i = deck.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+      return deck;
+    }
+
+    function hostStartGame() {
+      if (!isHost) return;
+      if (roomState.players.length < 2) {
+        addAIBot(true);
+      }
+
+      clearAllHostTimers();
+      const totalPlayers = roomState.players.length;
+      const deck = buildDeck(totalPlayers);
+
+      hostClosedDecks = {};
+      roomState.players.forEach(p => {
+        hostClosedDecks[p.id] = [];
+        p.openPile = [];
+        p.eliminated = false;
+      });
+
+      // 카드 균등 배분
+      deck.forEach((card, idx) => {
+        const targetPlayer = roomState.players[idx % totalPlayers];
+        hostClosedDecks[targetPlayer.id].push(card);
+      });
+
+      syncClosedCounts();
+
+      roomState.status = 'playing';
+      roomState.timeRemaining = GAME_DURATION_SECONDS; // 4분 (240초)
+      roomState.turnTimeRemaining = TURN_DURATION_SECONDS; // 10초 턴 제한시간
+      roomState.currentTurnIndex = 0;
+      roomState.bannerMessage = `🔔 게임 시작! 각 차례마다 10초 내에 카드를 뒤집고, 같은 과일 합이 5개가 되면 중앙의 종을 치세요!`;
+
+      switchScreen('game');
+      broadcastState('flip');
+
+      // 4분 전체 타이머 및 10초 턴 제한시간 카운트다운 시작
+      countdownInterval = setInterval(() => {
+        if (roomState.status !== 'playing') return;
+        roomState.timeRemaining = Math.max(0, roomState.timeRemaining - 1);
+
+        if (roomState.timeRemaining <= 0) {
+          hostEndGame('⏱️ 4분 제한 시간이 종료되었습니다!');
+          return;
+        }
+
+        // 현재 턴 플레이어의 10초 뒤집기 제한시간 차감
+        roomState.turnTimeRemaining = Math.max(0, (roomState.turnTimeRemaining ?? TURN_DURATION_SECONDS) - 1);
+        if (roomState.turnTimeRemaining <= 0) {
+          const activePlayer = roomState.players[roomState.currentTurnIndex];
+          if (activePlayer) {
+            hostProcessFlip(activePlayer.id, true);
+            return;
+          }
+        }
+
+        broadcastState();
+      }, 1000);
+
+      scheduleHostAITurn();
+    }
+
+    function syncClosedCounts() {
+      roomState.players.forEach(p => {
+        const pile = hostClosedDecks[p.id] || [];
+        p.closedCount = pile.length;
+      });
+    }
+
+    function handleFlipPress() {
+      if (roomState.status !== 'playing') return;
+      if (isHost) {
+        hostProcessFlip(myClientId);
+      } else {
+        if (guestConn && guestConn.open) {
+          guestConn.send({ type: 'ACTION_FLIP', playerId: myClientId });
+        }
+        if (localChannel) {
+          localChannel.postMessage({ type: 'ACTION_FLIP', playerId: myClientId });
+        }
+      }
+    }
+
+    function handleBellPress() {
+      if (roomState.status !== 'playing') return;
+
+      // 즉각적인 종 버튼 시각 반응
+      const bellBtn = document.getElementById('center-bell-btn');
+      if ( isHost) {
+        hostProcessBell(myClientId);
+      } else {
+        if (guestConn && guestConn.open) {
+          guestConn.send({ type: 'ACTION_BELL', playerId: myClientId });
+        }
+        if (localChannel) {
+          localChannel.postMessage({ type: 'ACTION_BELL', playerId: myClientId });
+        }
+      }
+    }
+
+    function hostProcessFlip(playerId, isTimeoutAuto = false) {
+      if (!isHost || roomState.status !== 'playing') return;
+      const currentPlayer = roomState.players[roomState.currentTurnIndex];
+      if (!currentPlayer || currentPlayer.id !== playerId) return;
+
+      const deck = hostClosedDecks[playerId] || [];
+      if (deck.length === 0) {
+        hostAdvanceTurn();
+        return;
+      }
+
+      const flippedCard = deck.pop();
+      currentPlayer.openPile.push(flippedCard);
+      syncClosedCounts();
+
+      if (isTimeoutAuto) {
+        roomState.bannerMessage = `⏰ [${currentPlayer.name}] 10초 제한시간 초과! 자동으로 [${flippedCard.emoji} ${flippedCard.fruitName} ${flippedCard.count}개] 카드를 뒤집었습니다.`;
+      } else {
+        roomState.bannerMessage = `🃏 ${currentPlayer.name}님이 [${flippedCard.emoji} ${flippedCard.fruitName} ${flippedCard.count}개] 카드를 펼쳤습니다.`;
+      }
+
+      hostCheckEliminations();
+      if (roomState.status !== 'playing') return;
+
+      hostAdvanceTurn();
+      broadcastState('flip');
+      scheduleHostAIBellCheck();
+    }
+
+    function hostAdvanceTurn() {
+      if (aiTurnTimer) clearTimeout(aiTurnTimer);
+      const count = roomState.players.length;
+      let nextIdx = roomState.currentTurnIndex;
+      let found = false;
+
+      for (let step = 1; step <= count; step++) {
+        const candidateIdx = (roomState.currentTurnIndex + step) % count;
+        const candidate = roomState.players[candidateIdx];
+        if (!candidate.eliminated && (hostClosedDecks[candidate.id]?.length || 0) > 0) {
+          nextIdx = candidateIdx;
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        hostEndGame('모든 플레이어의 뒤집을 카드가 소진되었습니다!');
+        return;
+      }
+
+      roomState.currentTurnIndex = nextIdx;
+      roomState.turnTimeRemaining = TURN_DURATION_SECONDS; // 새 턴 10초 리셋
+      scheduleHostAITurn();
+    }
+
+    function scheduleHostAITurn() {
+      if (!isHost || roomState.status !== 'playing') return;
+      if (aiTurnTimer) clearTimeout(aiTurnTimer);
+
+      const currentPlayer = roomState.players[roomState.currentTurnIndex];
+      if (currentPlayer && currentPlayer.isAI) {
+        aiTurnTimer = setTimeout(() => {
+          hostProcessFlip(currentPlayer.id);
+        }, 850);
+      }
+    }
+
+    function checkTableFiveFruit() {
+      const sums = { strawberry: 0, banana: 0, lime: 0, plum: 0 };
+      roomState.players.forEach(p => {
+        if (p.openPile && p.openPile.length > 0) {
+          const top = p.openPile[p.openPile.length - 1];
+          sums[top.fruit] += top.count;
+        }
+      });
+
+      for (const f of FRUITS) {
+        if (sums[f.id] === 5) {
+          return f;
+        }
+      }
+      return null;
+    }
+
+    function scheduleHostAIBellCheck() {
+      if (!isHost || roomState.status !== 'playing') return;
+      if (aiBellTimer) clearTimeout(aiBellTimer);
+
+      const matchedFruit = checkTableFiveFruit();
+      if (!matchedFruit) return;
+
+      const activeBots = roomState.players.filter(p => p.isAI && !p.eliminated);
+      if (activeBots.length === 0) return;
+
+      let baseDelay = 850;
+      if (aiSpeed === 'easy') baseDelay = 1250;
+      if (aiSpeed === 'hard') baseDelay = 520;
+
+      const randomBot = activeBots[Math.floor(Math.random() * activeBots.length)];
+      const jitter = Math.random() * 350;
+
+      aiBellTimer = setTimeout(() => {
+        hostProcessBell(randomBot.id);
+      }, baseDelay + jitter);
+    }
+
+    function hostProcessBell(ringerId) {
+      if (!isHost || roomState.status !== 'playing') return;
+      const ringerIdx = roomState.players.findIndex(p => p.id === ringerId);
+      if (ringerIdx === -1) return;
+      const ringer = roomState.players[ringerIdx];
+      if (ringer.eliminated) return;
+
+      if (aiBellTimer) clearTimeout(aiBellTimer);
+      if (aiTurnTimer) clearTimeout(aiTurnTimer);
+
+      const matchedFruit = checkTableFiveFruit();
+
+      if (matchedFruit) {
+        // 종 치기 성공: 바닥의 모든 오픈 카드 수거
+        let collected = [];
+        roomState.players.forEach(p => {
+          collected = collected.concat(p.openPile);
+          p.openPile = [];
+        });
+
+        hostClosedDecks[ringer.id] = collected.concat(hostClosedDecks[ringer.id] || []);
+        syncClosedCounts();
+
+        roomState.bannerMessage = `🔔 [${ringer.name}] 종 치기 성공! (${matchedFruit.emoji} ${matchedFruit.name} 5개) 바닥 카드 ${collected.length}장 획득!`;
+
+        hostCheckEliminations();
+        if (roomState.status !== 'playing') return;
+
+        roomState.currentTurnIndex = ringerIdx;
+        roomState.turnTimeRemaining = TURN_DURATION_SECONDS;
+        if ((hostClosedDecks[ringer.id]?.length || 0) === 0) {
+          hostAdvanceTurn();
+        } else {
+          scheduleHostAITurn();
+        }
+
+        broadcastState('bell');
+      } else {
+        // 오작동 벌칙: 다른 모든 생존 플레이어에게 내 덱에서 1장씩 분배
+        let penaltyGiven = 0;
+        const ringerDeck = hostClosedDecks[ringer.id] || [];
+
+        roomState.players.forEach(other => {
+          if (other.id !== ringer.id && !other.eliminated && ringerDeck.length > 0) {
+            const card = ringerDeck.pop();
+            hostClosedDecks[other.id].unshift(card);
+            penaltyGiven++;
+          }
+        });
+
+        syncClosedCounts();
+        roomState.bannerMessage = `❌ [${ringer.name}] 오작동! 과일 합이 5개가 아닙니다. 벌칙으로 총 ${penaltyGiven}장을 분배했습니다.`;
+
+        hostCheckEliminations();
+        if (roomState.status !== 'playing') return;
+
+        roomState.turnTimeRemaining = TURN_DURATION_SECONDS;
+        const currentP = roomState.players[roomState.currentTurnIndex];
+        if (!currentP || currentP.eliminated || (hostClosedDecks[currentP.id]?.length || 0) === 0) {
+          hostAdvanceTurn();
+        } else {
+          scheduleHostAITurn();
+        }
+
+        broadcastState('penalty');
+      }
+    }
+
+    function hostCheckEliminations() {
+      roomState.players.forEach(p => {
+        const closedLen = hostClosedDecks[p.id]?.length || 0;
+        const openLen = p.openPile?.length || 0;
+        if (!p.eliminated && closedLen === 0 && openLen === 0) {
+          p.eliminated = true;
+        }
+      });
+
+      const survivors = roomState.players.filter(p => !p.eliminated);
+      if (survivors.length <= 1) {
+        const winnerName = survivors[0] ? survivors[0].name : '최후의 플레이어';
+        hostEndGame(`🏆 최후의 1인 [${winnerName}]님이 승리했습니다!`);
+      }
+    }
+
+    function hostEndGame(reasonText) {
+      clearAllHostTimers();
+      roomState.status = 'ended';
+      roomState.bannerMessage = reasonText;
+      broadcastState('bell');
+    }
+
+    function clearAllHostTimers() {
+      if (countdownInterval) clearInterval(countdownInterval);
+      if (aiTurnTimer) clearTimeout(aiTurnTimer);
+      if (aiBellTimer) clearTimeout(aiBellTimer);
+      countdownInterval = null;
+      aiTurnTimer = null;
+      aiBellTimer = null;
+    }
+
+    /*************************************************************************
+     * 8. 화면 렌더링 (겹쳐 쌓인 내 카드 더미 & 8인 반응형 보드)
+     *************************************************************************/
+    function switchScreen(screenName) {
+      document.getElementById('screen-lobby').classList.add('hidden');
+      document.getElementById('screen-waiting').classList.add('hidden');
+      document.getElementById('screen-waiting').classList.remove('flex');
+      document.getElementById('screen-game').classList.add('hidden');
+      document.getElementById('screen-game').classList.remove('flex');
+
+      const timerBox = document.getElementById('timer-box');
+      const leaveBtn = document.getElementById('leave-room-btn');
+
+      if (screenName === 'lobby') {
+        document.getElementById('screen-lobby').classList.remove('hidden');
+        timerBox.classList.add('hidden');
+        timerBox.classList.remove('flex');
+        leaveBtn.classList.add('hidden');
+      } else if (screenName === 'waiting') {
+        const el = document.getElementById('screen-waiting');
+        el.classList.remove('hidden');
+        el.classList.add('flex');
+        timerBox.classList.add('hidden');
+        timerBox.classList.remove('flex');
+        leaveBtn.classList.remove('hidden');
+      } else if (screenName === 'game') {
+        const el = document.getElementById('screen-game');
+        el.classList.remove('hidden');
+        el.classList.add('flex');
+        timerBox.classList.remove('hidden');
+        timerBox.classList.add('flex');
+        leaveBtn.classList.remove('hidden');
+      }
+    }
+
+    function formatTime(sec) {
+      const m = String(Math.floor(sec / 60)).padStart(2, '0');
+      const s = String(sec % 60).padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    // 과일이 카드 밖으로 절대 벗어나지 않도록 크기를 제한한 3x3 그리드 렌더링
+    function renderFruitCardHtml(card, compact = false) {
+      if (!card) {
+        return `<span class="text-[10px] text-gray-400 font-semibold leading-none text-center">비어 있음</span>`;
+      }
+      const positions = PIP_POSITIONS[card.count] || [4];
+      const sizeClass = compact ? 'fruit-pip-seat' : 'fruit-pip-my';
+      let cells = '';
+      for (let i = 0; i < 9; i++) {
+        if (positions.includes(i)) {
+          cells += `<span class="fruit-pip-item ${sizeClass} drop-shadow-sm">${card.emoji}</span>`;
+        } else {
+          cells += `<span class="fruit-pip-item"></span>`;
+        }
+      }
+      return `<div class="fruit-pip-grid">${cells}</div>`;
+    }
+
+    // 내가 가진 카드 수를 직관적으로 파악할 수 있도록 겹쳐 쌓인 카드 레이어 HTML 생성
+    function renderOverlappingStackHtml(cardCount) {
+      if (cardCount <= 0) {
+        return `<div class="text-[11px] text-white/40 font-semibold text-center my-auto">카드 없음</div>`;
+      }
+      // 최대 26장까지 시각적 레이어로 촘촘히 쌓아 두께감을 표현
+      const visibleLayers = Math.min(cardCount, 26);
+      let layersHtml = '';
+      for (let i = 0; i < visibleLayers; i++) {
+        const offsetY = i * 1.15;
+        const offsetX = (i % 2 === 0 ? 1 : -1) * 0.5;
+        layersHtml += `
+          <div
+            class="stacked-card-layer"
+            style="bottom: ${offsetY}px; transform: translateX(${offsetX}px); z-index: ${i};"
+          ></div>
+        `;
+      }
+      return layersHtml;
+    }
+
+    function renderGameScreen() {
+      // 1. 4분 전체 타이머 업데이트
+      const timerText = document.getElementById('timer-text');
+      timerText.textContent = formatTime(roomState.timeRemaining);
+      if (roomState.timeRemaining <= 30) {
+        timerText.classList.add('text-rose-400', 'animate-pulse');
+      } else {
+        timerText.classList.remove('text-rose-400', 'animate-pulse');
+      }
+
+      const progressPct = Math.max(0, (roomState.timeRemaining / GAME_DURATION_SECONDS) * 100);
+      document.getElementById('timer-progress-bar').style.width = `${progressPct}%`;
+
+      // 1-2. 10초 카드 뒤집기 제한시간 업데이트
+      const turnSec = roomState.turnTimeRemaining ?? TURN_DURATION_SECONDS;
+      const turnPct = Math.max(0, (turnSec / TURN_DURATION_SECONDS) * 100);
+      const turnBar = document.getElementById('turn-timer-bar');
+      const turnText = document.getElementById('turn-timer-text');
+      if (turnBar && turnText) {
+        turnBar.style.width = `${turnPct}%`;
+        turnText.textContent = `${turnSec}초`;
+        if (turnSec <= 3) {
+          turnBar.className = 'h-full bg-rose-500 transition-all duration-300';
+          turnText.className = 'font-mono font-black text-xs sm:text-sm text-rose-400 animate-pulse min-w-[32px] text-right';
+        } else {
+          turnBar.className = 'h-full bg-amber-400 transition-all duration-300';
+          turnText.className = 'font-mono font-black text-xs sm:text-sm text-white min-w-[32px] text-right';
+        }
+      }
+
+      // 2. 상태 배너 및 중앙 턴 안내
+      document.getElementById('game-status-banner').textContent = roomState.bannerMessage;
+      const activeTurnPlayer = roomState.players[roomState.currentTurnIndex];
+      const centerTurnInfo = document.getElementById('table-center-turn-info');
+      if (centerTurnInfo && activeTurnPlayer) {
+        centerTurnInfo.textContent = `🎯 ${activeTurnPlayer.name}님 차례 (${turnSec}초)`;
+      }
+
+      // 3. 바닥 총 오픈 카드 및 생존자 수 계산
+      let totalOpenCards = 0;
+      let survivorsCount = 0;
+      roomState.players.forEach(p => {
+        totalOpenCards += (p.openPile?.length || 0);
+        if (!p.eliminated) survivorsCount++;
+      });
+      document.getElementById('table-open-total').textContent = `${totalOpenCards}장`;
+      document.getElementById('table-survivors-count').textContent = `${survivorsCount} / ${roomState.players.length}명`;
+
+      // 4. 내 플레이어 기준 시계방향으로 원탁 좌석(최대 8인) 배치
+      const totalP = roomState.players.length;
+      let myIndex = roomState.players.findIndex(p => p.id === myClientId);
+      if (myIndex === -1) myIndex = 0;
+      const myPlayer = roomState.players[myIndex];
+
+      const seatsContainer = document.getElementById('round-table-seats');
+      let seatsHtml = '';
+
+      // 나를 항상 6시 방향(90도)에 두고 시계방향으로 원탁 테두리에 배치
+      const radiusX = 41; // 원탁 가로 반경 (%)
+      const radiusY = 39; // 원탁 세로 반경 (%)
+
+      for (let offset = 0; offset < totalP; offset++) {
+        const pIdx = (myIndex + offset) % totalP;
+        const p = roomState.players[pIdx];
+        const isMe = p.id === myPlayer.id;
+        const isTurn = roomState.status === 'playing' && roomState.currentTurnIndex === pIdx;
+        const topCard = p.openPile && p.openPile.length > 0 ? p.openPile[p.openPile.length - 1] : null;
+
+        // 각도: offset=0일 때 90도(하단 6시 방향), 이후 시계방향 회전
+        const angleDeg = 90 + (offset * (360 / totalP));
+        const angleRad = (angleDeg * Math.PI) / 180;
+
+        const leftPct = 50 + radiusX * Math.cos(angleRad);
+        const topPct = 50 + radiusY * Math.sin(angleRad);
+
+        seatsHtml += `
+          <div
+            class="table-seat pointer-events-auto bg-black/75 border-2 ${isTurn ? 'turn-highlight' : (isMe ? 'border-emerald-400/80' : 'border-white/20')} ${p.eliminated ? 'opacity-40 grayscale' : ''} rounded-xl p-1.5 sm:p-2 shadow-xl w-[104px] sm:w-[122px]"
+            style="left: ${leftPct.toFixed(2)}%; top: ${topPct.toFixed(2)}%;"
+          >
+            <!-- 플레이어 이름 & 남은 턴 초 표시 -->
+            <div class="flex items-center justify-between gap-1 mb-1">
+              <span class="font-extrabold text-[10px] sm:text-[11px] ${isMe ? 'text-emerald-300' : 'text-white'} truncate">
+                ${isMe ? '⭐나' : (p.isAI ? '🤖' : '👤')}${escapeHtml(p.name)}
+              </span>
+              ${isTurn
+                ? `<span class="text-[9px] px-1 py-0.2 rounded bg-amber-400 text-amber-950 font-black shrink-0">${turnSec}s</span>`
+                : `<span class="text-[9px] text-amber-300 font-bold shrink-0">${p.closedCount}장</span>`
+              }
+            </div>
+
+            <!-- 좌석 내 미니 카드 영역: [뒷면 덱] + [펼친 과일 카드] -->
+            <div class="flex items-center justify-center gap-1.5">
+              <div class="w-8 h-11 sm:w-9 sm:h-12 rounded bg-gradient-to-br from-red-600 to-red-800 border border-white/80 flex flex-col items-center justify-center shadow shrink-0">
+                <span class="text-[9px] font-black text-white leading-none">${p.closedCount}</span>
+                <span class="text-[7px] text-red-100 mt-0.5">DECK</span>
+              </div>
+
+              <div class="w-11 h-14 sm:w-12 sm:h-16 rounded-md bg-amber-50 border border-gray-300 shadow flex items-center justify-center p-0.5 text-gray-900 overflow-hidden shrink-0">
+                ${renderFruitCardHtml(topCard, true)}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      seatsContainer.innerHTML = seatsHtml;
+
+      // 5. 하단 내 영역 (겹쳐 쌓인 내 카드 더미 + 내 카드 뒤집기 + 내 오픈 카드) 렌더링
+      const isMyTurn = roomState.status === 'playing' && roomState.currentTurnIndex === myIndex;
+      const myPanel = document.getElementById('my-player-panel');
+      const myTurnBadge = document.getElementById('my-turn-badge');
+
+      if (isMyTurn) {
+        myPanel.classList.add('turn-highlight');
+        myTurnBadge.classList.remove('hidden');
+        myTurnBadge.textContent = `내 차례! (${turnSec}초 안에 뒤집기)`;
+      } else {
+        myPanel.classList.remove('turn-highlight');
+        myTurnBadge.classList.add('hidden');
+      }
+
+      document.getElementById('my-panel-name').textContent = myPlayer.name;
+      document.getElementById('my-total-cards-text').textContent = myPlayer.closedCount;
+      document.getElementById('my-open-cards-text').textContent = myPlayer.openPile?.length || 0;
+      document.getElementById('my-stack-label-count').textContent = myPlayer.closedCount;
+      document.getElementById('my-deck-count-badge').textContent = `${myPlayer.closedCount}장`;
+
+      // 내 카드 더미 옆에 겹치게 쌓인 카드 시각화 업데이트
+      document.getElementById('my-visual-stack').innerHTML = renderOverlappingStackHtml(myPlayer.closedCount);
+
+      // 카드 두께 게이지 퍼센트 (기준 40장 만점)
+      const gaugePct = Math.min(100, Math.round((myPlayer.closedCount / 40) * 100));
+      document.getElementById('my-stack-gauge').style.height = `${gaugePct}%`;
+
+      // 내가 펼친 오픈 카드 업데이트
+      const myTopCard = myPlayer.openPile && myPlayer.openPile.length > 0
+        ? myPlayer.openPile[myPlayer.openPile.length - 1]
+        : null;
+      document.getElementById('my-open-card-slot').innerHTML = renderFruitCardHtml(myTopCard, false);
+    }
+
+    /*************************************************************************
+     * 9. 게임 종료 순위 모달 및 유틸리티
+     *************************************************************************/
+    function showResultModal() {
+      const modal = document.getElementById('modal-result');
+      modal.classList.remove('hidden');
+
+      document.getElementById('result-subtitle').textContent = roomState.bannerMessage;
+
+      const sorted = [...roomState.players].sort((a, b) => b.closedCount - a.closedCount);
+      const listEl = document.getElementById('result-ranking-list');
+      let html = '';
+
+      sorted.forEach((p, idx) => {
+        const medal = idx === 0 ? '🥇 1위' : idx === 1 ? '🥈 2위' : idx === 2 ? '🥉 3위' : `${idx + 1}위`;
+        html += `
+          <div class="flex items-center justify-between px-4 py-2.5 rounded-xl ${idx === 0 ? 'bg-amber-400/20 border border-amber-400' : 'bg-white/5 border border-white/10'}">
+            <div class="flex items-center gap-2">
+              <span class="font-black text-sm ${idx === 0 ? 'text-amber-300' : 'text-slate-300'}">${medal}</span>
+              <span class="font-bold text-sm text-white">${escapeHtml(p.name)}</span>
+            </div>
+            <span class="font-mono font-black text-sm text-emerald-300">보유 ${p.closedCount}장</span>
+          </div>
+        `;
+      });
+
+      listEl.innerHTML = html;
+    }
+
+    function closeResultAndReturnWaiting() {
+      document.getElementById('modal-result').classList.add('hidden');
+      if (isHost) {
+        roomState.status = 'waiting';
+        broadcastState();
+        switchScreen('waiting');
+        renderWaitingRoom();
+      } else {
+        switchScreen('waiting');
+        renderWaitingRoom();
+      }
+    }
+
+    function leaveRoom() {
+      clearAllHostTimers();
+      if (peer) {
+        peer.destroy();
+        peer = null;
+      }
+      if (localChannel) {
+        localChannel.close();
+        localChannel = null;
+      }
+      document.getElementById('modal-result').classList.add('hidden');
+      updateConnectionBadge('로비 대기', 'emerald');
+      switchScreen('lobby');
+    }
+
+    function updateConnectionBadge(text, color) {
+      const badge = document.getElementById('connection-badge');
+      badge.textContent = text;
+      if (color === 'amber') {
+        badge.className = 'text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 font-semibold';
+      } else {
+        badge.className = 'text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-semibold';
+      }
+    }
+
+    function openGithubModal() {
+      document.getElementById('modal-github').classList.remove('hidden');
+    }
+
+    function closeGithubModal() {
+      document.getElementById('modal-github').classList.add('hidden');
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
