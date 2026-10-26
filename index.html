@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>할리갈리 모바일 온라인 v15 (Supabase 무료 관전자 중계)</title>
+  <title>할리갈리 모바일 온라인 v16 (Supabase 자동 연결)</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- 플레이어는 PeerJS, 관전자는 Supabase Realtime -->
@@ -474,16 +474,6 @@
         </button>
       </section>
     </div>
-    <!-- Supabase 무료 플랜: 프로젝트 URL + publishable/anon key만 사용 (service_role 키 금지) -->
-  <div class="w-full max-w-5xl mx-auto mb-3 bg-slate-950/70 border border-violet-300/30 rounded-xl p-3 text-white text-xs">
-    <label class="block font-bold text-violet-200 mb-2">👁️ Supabase 무료 관전자 중계 설정</label>
-    <div class="flex flex-col sm:flex-row gap-2">
-      <input id="supabase-url-input" type="url" placeholder="https://프로젝트ID.supabase.co" class="min-w-0 flex-1 rounded-lg bg-white text-slate-900 px-3 py-2" />
-      <input id="supabase-key-input" type="text" placeholder="Publishable key (sb_publishable_...) 또는 anon key" class="min-w-0 flex-[2] rounded-lg bg-white text-slate-900 px-3 py-2" />
-      <button onclick="saveSupabaseConfig()" class="bg-violet-600 px-3 py-2 rounded-lg font-bold">설정 저장</button>
-    </div>
-    <p class="mt-1 text-slate-300">먼저 README의 SQL을 Supabase에 적용하고 Anonymous Sign-ins를 켜세요. 초대 링크에 URL과 공개 키가 포함되어 관전자는 별도 설정 없이 입장합니다. 비밀 키(service_role)는 절대 입력하지 마세요.</p>
-  </div>
   </main>
 
   <!-- ==================== 2. 대기실 화면 (최대 8명 슬롯 & 초대) ==================== -->
@@ -752,7 +742,7 @@
           <li>생성된 <code class="text-sky-300 font-mono">https://아이디.github.io/저장소명/</code> 주소를 카카오톡 등으로 친구들에게 공유하면 모바일에서 즉시 방 개설 및 입장이 가능합니다!</li>
         </ol>
         <p class="text-xs text-emerald-300">
-          ✨ <b>네트워크 기술:</b> WebRTC(PeerJS 공개 브로커) 및 로컬 탭 동기화가 내장되어 있어, 플레이어는 PeerJS, 관전자는 Supabase Realtime을 구독합니다. 먼저 Supabase SQL을 실행하고 프로젝트 URL 및 공개 키를 설정해야 합니다.
+          ✨ <b>네트워크 기술:</b> WebRTC(PeerJS 공개 브로커) 및 로컬 탭 동기화가 내장되어 있어, 플레이어는 PeerJS, 관전자는 Supabase Realtime을 구독합니다. 먼저 Supabase SQL을 실행하고 Anonymous Sign-ins를 활성화해야 합니다.
         </p>
       </div>
 
@@ -778,8 +768,8 @@
     const PEER_PREFIX = 'hg8-kr-room-';
     // GitHub Pages에서 배포할 때 아래 두 값을 입력해 두면 모든 방문자가 바로 접속 가능.
     // 반드시 Supabase의 공개 publishable/anon key만 사용. service_role/secret key 사용 금지.
-    const SUPABASE_URL_DEFAULT = '';
-    const SUPABASE_PUBLIC_KEY_DEFAULT = '';
+    const SUPABASE_URL_DEFAULT = 'https://btkgvadllxxoakqdxhnc.supabase.co';
+    const SUPABASE_PUBLIC_KEY_DEFAULT = 'sb_publishable_nz2xK5lUi9lWqSzaOQ28kA_X8TCAtlY';
     let supabaseUrl = SUPABASE_URL_DEFAULT;
     let supabasePublicKey = SUPABASE_PUBLIC_KEY_DEFAULT;
     let sbClient = null;
@@ -953,25 +943,10 @@ let roomCode = '';
      *************************************************************************/
     window.addEventListener('DOMContentLoaded', () => {
       assignRandomNickname();
-      supabaseUrl = (localStorage.getItem('hg_sb_url') || SUPABASE_URL_DEFAULT).replace(/\/$/, '');
-      supabasePublicKey = localStorage.getItem('hg_sb_key') || SUPABASE_PUBLIC_KEY_DEFAULT;
-      document.getElementById('supabase-url-input').value = supabaseUrl;
-      document.getElementById('supabase-key-input').value = supabasePublicKey;
-      if (supabaseUrl && supabasePublicKey) initSupabaseClient();
-
-      // URL에 ?room=XXXX 파라미터가 있으면 자동으로 방 코드 입력란에 세팅
+      // Supabase 공개 프로젝트 설정은 이 파일에 고정되어 있습니다.
+      // 방장/플레이어/관전자 모두 동일한 프로젝트에 자동 연결합니다.
+      initSupabaseClient();
       const params = new URLSearchParams(window.location.search);
-      const invitedUrl = params.get('sburl');
-      const invitedKey = params.get('sbkey');
-      if (invitedUrl && /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(invitedUrl) && invitedKey && /^(sb_publishable_|eyJ)/.test(invitedKey)) {
-        supabaseUrl = invitedUrl;
-        supabasePublicKey = invitedKey;
-        localStorage.setItem('hg_sb_url', supabaseUrl);
-        localStorage.setItem('hg_sb_key', supabasePublicKey);
-        document.getElementById('supabase-url-input').value = supabaseUrl;
-        document.getElementById('supabase-key-input').value = supabasePublicKey;
-        initSupabaseClient();
-      }
       const roomParam = params.get('room');
       if (roomParam && /^\d{4}$/.test(roomParam)) {
         document.getElementById('join-code-input').value = roomParam;
@@ -1041,7 +1016,7 @@ let roomCode = '';
        maxPlayers = parseInt(document.getElementById('host-max-players').value, 10) || 8;
       aiSpeed = document.getElementById('host-ai-speed').value || 'normal';
       if (!initSupabaseClient()) {
-        showToast('Supabase 프로젝트 URL과 공개 키를 먼저 설정해주세요.');
+        showToast('Supabase 연결을 확인할 수 없습니다. 네트워크와 설정을 확인해주세요.');
         return;
       }
       const reserved = await reserveSupabaseRoom();
@@ -1142,7 +1117,7 @@ let roomCode = '';
 
       if (isSpectator) {
         if (!initSupabaseClient()) {
-          document.getElementById('join-status-msg').textContent = 'Supabase URL 및 공개 키를 먼저 저장해주세요.';
+          document.getElementById('join-status-msg').textContent = 'Supabase 연결을 확인할 수 없습니다. 잠시 후 다시 시도해주세요.';
           return;
         }
         connectSupabaseRoom(false);
@@ -1400,7 +1375,7 @@ let roomCode = '';
 
     function copyInviteLink() {
       const baseUrl = window.location.origin + window.location.pathname;
-      const inviteUrl = `${baseUrl}?room=${roomState.roomCode}&sburl=${encodeURIComponent(supabaseUrl)}&sbkey=${encodeURIComponent(supabasePublicKey)}`;
+      const inviteUrl = `${baseUrl}?room=${roomState.roomCode}`;
       const tempInput = document.createElement('textarea');
       tempInput.value = `[할리갈리 8인 초대] 방 코드: ${roomState.roomCode}\n접속 링크: ${inviteUrl}`;
       document.body.appendChild(tempInput);
@@ -2181,25 +2156,6 @@ let roomCode = '';
         sbClient._hgKey = supabasePublicKey;
       }
       return true;
-    }
-
-    function saveSupabaseConfig() {
-      const url = document.getElementById('supabase-url-input').value.trim().replace(/\/$/, '');
-      const key = document.getElementById('supabase-key-input').value.trim();
-      if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url) || !/^(sb_publishable_|eyJ)/.test(key)) {
-        showToast('올바른 Supabase URL과 공개 publishable/anon key를 입력해주세요.');
-        return;
-      }
-      if (/service_role|sb_secret_/i.test(key)) {
-        showToast('비밀 키는 브라우저에 넣을 수 없습니다. 공개 키만 사용하세요.');
-        return;
-      }
-      supabaseUrl = url;
-      supabasePublicKey = key;
-      localStorage.setItem('hg_sb_url', url);
-      localStorage.setItem('hg_sb_key', key);
-      initSupabaseClient();
-      showToast('Supabase 설정이 저장되었습니다.');
     }
 
     async function reserveSupabaseRoom() {
