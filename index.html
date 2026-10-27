@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>할리갈리 모바일 온라인 v20 (Supabase 플레이어 통합 · 대기실 자동 퇴장 수정)</title>
+  <title>할리갈리 모바일 온라인 v22 (Supabase 플레이어 통합 · 대기실 자동 퇴장 수정)</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- 플레이어는 PeerJS, 관전자는 Supabase Realtime -->
@@ -328,8 +328,8 @@
         <i class="fa-solid fa-volume-high mr-1"></i>효과음 ON
       </button>
 
-      <button onclick="openGithubModal()" class="px-3 py-1.5 rounded-xl bg-emerald-600/40 hover:bg-emerald-600/60 text-xs sm:text-sm font-semibold border border-emerald-400/30 transition">
-        <i class="fa-brands fa-github mr-1"></i>배포/초대 안내
+      <button onclick="openRulesModal()" class="px-3 py-1.5 rounded-xl bg-emerald-600/40 hover:bg-emerald-600/60 text-xs sm:text-sm font-semibold border border-emerald-400/30 transition">
+        <i class="fa-solid fa-circle-question mr-1"></i>게임 규칙
       </button>
 
       <button id="leave-room-btn" onclick="leaveRoom()" class="hidden px-3 py-1.5 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-xs sm:text-sm font-bold transition">
@@ -729,36 +729,22 @@
     </div>
   </div>
 
-  <!-- ==================== 5. GitHub Pages 모바일 배포 & 초대 안내 모달 ==================== -->
-  <div id="modal-github" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-white/20 rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl">
-      <div class="flex items-center justify-between border-b border-white/10 pb-3">
-        <h3 class="text-lg font-black text-amber-300 flex items-center gap-2">
-          <i class="fa-brands fa-github text-xl"></i> GitHub Pages 모바일 웹 배포 방법
-        </h3>
-        <button onclick="closeGithubModal()" class="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+  <!-- ==================== 5. 게임 규칙 안내 모달 ==================== -->
+  <div id="modal-rules" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="rules-title" onclick="if(event.target===this)closeRulesModal()">
+    <div class="bg-slate-900 border border-amber-400/40 rounded-2xl max-w-lg w-full max-h-[88vh] overflow-y-auto p-5 sm:p-6 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3 gap-3">
+        <h3 id="rules-title" class="text-lg font-black text-amber-300 flex items-center gap-2"><i class="fa-solid fa-book-open"></i> 할리갈리 게임 규칙</h3>
+        <button onclick="closeRulesModal()" aria-label="게임 규칙 닫기" class="text-slate-300 hover:text-white text-xl font-bold px-2">✕</button>
       </div>
-
-      <div class="mt-4 space-y-3 text-xs sm:text-sm text-slate-200 leading-relaxed">
-        <p>
-          이 파일(<code class="text-amber-300 font-mono">index.html</code>)은 GitHub Pages에서 게임 화면을 제공하고, Supabase 무료 플랜의 PostgreSQL + Realtime으로 관전자 화면을 중계합니다. 플레이어는 기존 PeerJS 방식으로 연결됩니다.
-        </p>
-        <ol class="list-decimal list-inside space-y-2 bg-black/40 p-3.5 rounded-xl border border-white/10">
-          <li>GitHub에서 새 저장소(Repository)를 생성합니다.</li>
-          <li>이 코드를 <code class="text-amber-300 font-mono font-bold">index.html</code> 파일로 저장해 업로드(Commit)합니다.</li>
-          <li>저장소의 <b>Settings → Pages</b> 메뉴에서 Branch를 <code class="text-emerald-300 font-mono">main</code>으로 선택하고 Save를 누릅니다.</li>
-          <li>생성된 <code class="text-sky-300 font-mono">https://아이디.github.io/저장소명/</code> 주소를 카카오톡 등으로 친구들에게 공유하면 모바일에서 즉시 방 개설 및 입장이 가능합니다!</li>
-        </ol>
-        <p class="text-xs text-emerald-300">
-          ✨ <b>네트워크 기술:</b> WebRTC(PeerJS 공개 브로커) 및 로컬 탭 동기화가 내장되어 있어, 플레이어는 PeerJS, 관전자는 Supabase Realtime을 구독합니다. 먼저 Supabase SQL을 실행하고 Anonymous Sign-ins를 활성화해야 합니다.
-        </p>
+      <div class="mt-4 space-y-4 text-sm text-slate-100 leading-relaxed">
+        <section><h4 class="font-black text-amber-300 mb-1">🃏 1. 차례대로 카드 뒤집기</h4><p>플레이어는 자기 차례에 <b>내 카드 더미</b>를 눌러 카드 한 장을 펼칩니다. 제한 시간은 <b>10초</b>이며, 시간이 지나면 자동으로 뒤집힙니다. 각 플레이어가 펼친 카드 중 <b>맨 위 카드만</b> 과일 개수 계산에 사용합니다.</p></section>
+        <section><h4 class="font-black text-amber-300 mb-1">🔔 2. 같은 과일이 정확히 5개면 종!</h4><p>모든 플레이어 앞에 보이는 맨 위 카드에서 <b>같은 종류의 과일 합계가 정확히 5개</b>가 되는 순간 누구나 중앙의 종을 칠 수 있습니다. <b>5개 초과는 성공이 아닙니다.</b></p></section>
+        <section><h4 class="font-black text-amber-300 mb-1">🏆 3. 종을 올바르게 치면</h4><p>가장 먼저 종을 친 플레이어가 테이블에 펼쳐진 <b>모든 카드</b>를 가져와 자기 뒤집지 않은 카드 더미에 넣습니다.</p></section>
+        <section><h4 class="font-black text-amber-300 mb-1">❌ 4. 종을 잘못 치면</h4><p>다른 <b>생존 플레이어 각각에게</b> 자기 뒤집지 않은 카드 더미에서 <b>1장씩</b> 줍니다. 나눠줄 카드가 상대 플레이어 수보다 부족하면 카드를 일부만 주는 대신 <b>즉시 탈락</b>합니다.</p></section>
+        <section><h4 class="font-black text-amber-300 mb-1">⏱️ 5. 종료 및 순위</h4><p>방장이 설정한 제한 시간이 끝나거나 마지막 한 명만 남으면 게임이 종료됩니다. <b>뒤집지 않은 카드 + 자기 앞에 펼친 카드</b>를 합한 총 보유 카드 수가 많을수록 높은 순위이며, 같은 수량은 공동 순위입니다.</p></section>
+        <section><h4 class="font-black text-amber-300 mb-1">👀 6. 관전자와 AI</h4><p>관전자는 카드를 뒤집거나 종을 칠 수 없고 게임 상황과 순위를 볼 수 있습니다. 방장은 대기실에서 AI 플레이어를 추가할 수 있습니다.</p></section>
       </div>
-
-      <div class="mt-5 flex justify-end">
-        <button onclick="closeGithubModal()" class="px-5 py-2.5 rounded-xl bg-amber-400 text-amber-950 font-black text-sm">
-          확인
-        </button>
-      </div>
+      <div class="mt-5 flex justify-end"><button onclick="closeRulesModal()" class="px-6 py-2.5 rounded-xl bg-amber-400 text-amber-950 font-black text-sm">확인</button></div>
     </div>
   </div>
 
@@ -1933,21 +1919,18 @@ let roomCode = '';
 
        if (isSpectator) {
          const rankingList = document.getElementById('spectator-ranking-list');
-         const rankedPlayers = [...roomState.players].sort((a, b) => {
-           if (b.closedCount !== a.closedCount) return b.closedCount - a.closedCount;
-           return String(a.name).localeCompare(String(b.name), 'ko');
-         });
+         const rankedPlayers = getCardRankings(roomState.players);
 
-         rankingList.innerHTML = rankedPlayers.map((p, idx) => {
-           const rankLabel = idx === 0 ? '🥇 1위' : idx === 1 ? '🥈 2위' : idx === 2 ? '🥉 3위' : `${idx + 1}위`;
+         rankingList.innerHTML = rankedPlayers.map(({player: p, count, rank}) => {
+           const displayRank = rankLabel(rank);
            return `
-             <div class="spectator-rank-item ${idx === 0 ? 'rank-first' : ''} ${p.eliminated ? 'opacity-45 grayscale' : ''}">
+             <div class="spectator-rank-item ${rank === 1 ? 'rank-first' : ''} ${p.eliminated ? 'opacity-45 grayscale' : ''}">
                <div class="flex items-center justify-between gap-1">
-                 <span class="text-[10px] sm:text-xs font-black ${idx === 0 ? 'text-amber-300' : 'text-slate-300'}">${rankLabel}</span>
+                 <span class="text-[10px] sm:text-xs font-black ${rank === 1 ? 'text-amber-300' : 'text-slate-300'}">${displayRank}</span>
                  ${p.eliminated ? '<span class="text-[9px] font-bold text-rose-300">탈락</span>' : ''}
                </div>
                <div class="mt-0.5 text-[11px] sm:text-xs font-extrabold text-white truncate">${p.isAI ? '🤖 ' : '👤 '}${escapeHtml(p.name)}</div>
-               <div class="mt-0.5 text-sm sm:text-base font-black text-emerald-300">${p.closedCount}<span class="text-[10px] sm:text-xs ml-0.5 text-emerald-100/70">장</span></div>
+               <div class="mt-0.5 text-sm sm:text-base font-black text-emerald-300">${count}<span class="text-[10px] sm:text-xs ml-0.5 text-emerald-100/70">장</span></div>
              </div>
            `;
          }).join('');
@@ -2045,25 +2028,49 @@ let roomCode = '';
     /*************************************************************************
      * 9. 게임 종료 순위 모달 및 유틸리티
      *************************************************************************/
+    // 순위 기준: 뒤집지 않은 카드 + 자기 앞에 펼쳐 놓은 카드.
+    function rankingCardCount(player) {
+      return (Number(player.closedCount) || 0) + (player.openPile?.length || 0);
+    }
+
+    function getCardRankings(players) {
+      const sorted = [...players].sort((a, b) =>
+        rankingCardCount(b) - rankingCardCount(a) || String(a.name).localeCompare(String(b.name), 'ko')
+      );
+      let previousCount = null;
+      let previousRank = 0;
+      return sorted.map((player, index) => {
+        const count = rankingCardCount(player);
+        const rank = count === previousCount ? previousRank : index + 1;
+        previousCount = count;
+        previousRank = rank;
+        return { player, count, rank };
+      });
+    }
+
+    function rankLabel(rank) {
+      return rank === 1 ? '🥇 1위' : rank === 2 ? '🥈 2위' : rank === 3 ? '🥉 3위' : `${rank}위`;
+    }
+
     function showResultModal() {
       const modal = document.getElementById('modal-result');
       modal.classList.remove('hidden');
 
       document.getElementById('result-subtitle').textContent = roomState.bannerMessage;
 
-      const sorted = [...roomState.players].sort((a, b) => b.closedCount - a.closedCount);
+      const sorted = getCardRankings(roomState.players);
       const listEl = document.getElementById('result-ranking-list');
       let html = '';
 
-      sorted.forEach((p, idx) => {
-        const medal = idx === 0 ? '🥇 1위' : idx === 1 ? '🥈 2위' : idx === 2 ? '🥉 3위' : `${idx + 1}위`;
+      sorted.forEach(({player: p, count, rank}) => {
+        const medal = rankLabel(rank);
         html += `
-          <div class="flex items-center justify-between px-4 py-2.5 rounded-xl ${idx === 0 ? 'bg-amber-400/20 border border-amber-400' : 'bg-white/5 border border-white/10'}">
+          <div class="flex items-center justify-between px-4 py-2.5 rounded-xl ${rank === 1 ? 'bg-amber-400/20 border border-amber-400' : 'bg-white/5 border border-white/10'}">
             <div class="flex items-center gap-2">
-              <span class="font-black text-sm ${idx === 0 ? 'text-amber-300' : 'text-slate-300'}">${medal}</span>
+              <span class="font-black text-sm ${rank === 1 ? 'text-amber-300' : 'text-slate-300'}">${medal}</span>
               <span class="font-bold text-sm text-white">${escapeHtml(p.name)}</span>
             </div>
-            <span class="font-mono font-black text-sm text-emerald-300">보유 ${p.closedCount}장</span>
+            <span class="font-mono font-black text-sm text-emerald-300">총 ${count}장</span>
           </div>
         `;
       });
@@ -2114,12 +2121,12 @@ let roomCode = '';
       }
     }
 
-    function openGithubModal() {
-      document.getElementById('modal-github').classList.remove('hidden');
+    function openRulesModal() {
+      document.getElementById('modal-rules').classList.remove('hidden');
     }
 
-    function closeGithubModal() {
-      document.getElementById('modal-github').classList.add('hidden');
+    function closeRulesModal() {
+      document.getElementById('modal-rules').classList.add('hidden');
     }
 
     function escapeHtml(str) {
