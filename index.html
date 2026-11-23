@@ -1185,8 +1185,11 @@ let roomCode = '';
       document.getElementById('game-status-banner').textContent = roomState.bannerMessage;
       const activeTurnPlayer = roomState.players[roomState.currentTurnIndex];
       const centerTurnInfo = document.getElementById('table-center-turn-info');
-      if (centerTurnInfo && activeTurnPlayer) {
-        centerTurnInfo.textContent = `🎯 ${activeTurnPlayer.name}님 차례 (${turnSec}초)`;
+      const bellPauseActive = Number(roomState.roundPauseUntil || 0) > Date.now() + serverOffset;
+      if (centerTurnInfo) {
+        centerTurnInfo.textContent = bellPauseActive
+          ? `🏆 ${roomState.roundWinnerName || roomState.roundResult?.playerName || '플레이어'}님 승리! 다음 턴 준비 중…`
+          : (activeTurnPlayer ? `🎯 ${activeTurnPlayer.name}님 차례 (${turnSec}초)` : '차례 대기 중');
       }
 
       // 3. 바닥 총 오픈 카드 및 생존자 수 계산
@@ -1199,7 +1202,8 @@ let roomCode = '';
       document.getElementById('table-open-total').textContent = `${totalOpenCards}장`;
        document.getElementById('table-survivors-count').textContent = `${survivorsCount} / ${roomState.players.length}명`;
        document.getElementById('game-spectator-count').textContent = roomState.spectatorCount || 0;
-       document.getElementById('center-bell-btn').disabled = isSpectator || roomState.status !== 'playing';
+       const bellPauseActive = Number(roomState.roundPauseUntil || 0) > Date.now() + serverOffset;
+       document.getElementById('center-bell-btn').disabled = isSpectator || roomState.status !== 'playing' || bellPauseActive;
        document.getElementById('center-bell-btn').style.cursor = isSpectator ? 'default' : 'pointer';
 
        // 관전자 전용 레이아웃: 상단 순위 + 중앙 테이블
@@ -1469,7 +1473,9 @@ let roomCode = '';
       document.getElementById('turn-timer-text').textContent=`${sec}초`;
       document.getElementById('turn-timer-bar').style.width=`${sec*10}%`;
       const p=roomState.players[roomState.currentTurnIndex];
-      if(p)document.getElementById('table-center-turn-info').textContent=`🎯 ${p.name}님 차례 (${sec}초)`;
+      const centerInfo=document.getElementById('table-center-turn-info');
+      const bellPauseActive=Number(roomState.roundPauseUntil||0)>Date.now()+serverOffset;
+      if(centerInfo)centerInfo.textContent=bellPauseActive?`🏆 ${roomState.roundWinnerName||roomState.roundResult?.playerName||'플레이어'}님 승리! 다음 턴 준비 중…`:(p?`🎯 ${p.name}님 차례 (${sec}초)`:'차례 대기 중');
       if(p?.id===myClientId)document.getElementById('my-turn-badge').textContent=`내 차례! (${sec}초 안에 뒤집기)`;
     }
     function renderAuthoritative() {
@@ -1560,8 +1566,8 @@ let roomCode = '';
       catch(e){showToast(e.message);refreshState();}
       finally{if(generation===sessionGeneration)pendingActions.delete(requestKey);}
     }
-    function handleFlipPress(){if(!isSpectator && roomState.status==='playing' && roomState.players[roomState.currentTurnIndex]?.id===myClientId)command('flip',{tableRevision:roomState.tableRevision});}
-    function handleBellPress(){if(!isSpectator && roomState.status==='playing')command('bell',{tableRevision:roomState.tableRevision});}
+    function handleFlipPress(){if(!isSpectator && roomState.status==='playing' && !(Number(roomState.roundPauseUntil||0)>Date.now()+serverOffset) && roomState.players[roomState.currentTurnIndex]?.id===myClientId)command('flip',{tableRevision:roomState.tableRevision});}
+    function handleBellPress(){if(!isSpectator && roomState.status==='playing' && !(Number(roomState.roundPauseUntil||0)>Date.now()+serverOffset))command('bell',{tableRevision:roomState.tableRevision});}
     function hostStartGame(){command('start');}
     function addAIBot(){command('add_bot');}
     function removeAIBot(){command('remove_bot');}
